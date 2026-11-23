@@ -6,7 +6,7 @@ For L-meta-758, the six-vertex double star has exact circuit size six. Its five 
 
 For L-meta-791, the assigned eight-gate circuit detects an active edge on a path of seven vertices. The proof checks its size, the fan-in of every gate, and the output on all 128 input assignments. The local project checker rechecked 1,079 constants and the desk acknowledged submission. [Our PR #1342](https://github.com/brilliant-hq/pequalnp-proofs/pull/1342)
 
-For L-meta-782, we proved the gate-count bound for AND/OR circuits whose outputs accept only part of their assigned sets on singleton inputs. The local project checker accepted the exact statement and rechecked 1,123 constants. The desk acknowledged submission. [Our PR #1288](https://github.com/brilliant-hq/pequalnp-proofs/pull/1288)
+For L-meta-782, we proved the gate-count bound for AND/OR circuits whose outputs accept only part of their assigned sets on singleton inputs. The local project checker accepted the exact statement and rechecked 1,123 constants. The desk acknowledged submission. Upstream merged [PR #1204](https://github.com/brilliant-hq/pequalnp-proofs/pull/1204) and closed ours. [Our PR #1288](https://github.com/brilliant-hq/pequalnp-proofs/pull/1288)
 
 Our vertex-cover proof shows that a cover of size t contains every vertex of degree greater than t. Omitting such a vertex would put all its neighbors in the cover. The project checker accepted the exact assigned statement locally and rechecked 1,061 constants. The desk acknowledged our submission. Upstream closed it after merging an earlier proof. [Our PR #1005](https://github.com/brilliant-hq/pequalnp-proofs/pull/1005) · [Merged PR #979](https://github.com/brilliant-hq/pequalnp-proofs/pull/979)
 
