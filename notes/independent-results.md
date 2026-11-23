@@ -59,7 +59,7 @@ For L-meta-904 the desk acknowledged exhaustive searches of all three specified 
 | A, shard 1 | 8,388,608 | 4,369,536 | 4,019,072 |
 | B, shard 2 | 16,777,216 | 15,877,240 | 899,976 |
 
-These three graphs cover 27,262,976 orientations. The statement for all four-cycle-free graphs on at most fifteen vertices remains open.
+These three graphs cover 27,262,976 orientations. Lean independently proves that fixed lists of 10, 21 and 15 candidate sets, respectively, cover every orientation of these graphs with a witness of at most four vertices. The three proof terms use only the standard axioms propext, Classical.choice and Quot.sound. The statement for all four-cycle-free graphs on at most fifteen vertices remains open. [Lean certificates](../lean/PEqualNP/Outside/L_meta_904_ranges.lean)
 
 For L-gct-086, the sharp maximum is 2n − 3 in every size n ≥ 3 if a row symmetry group fixes one row and is transitive on ordered pairs of distinct remaining rows. The proof uses Taylor coefficients through degree n − 1 and also applies to column symmetries. [One distinguished row](one-distinguished-row.md)
 
