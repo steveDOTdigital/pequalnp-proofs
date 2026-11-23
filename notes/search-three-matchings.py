@@ -101,12 +101,18 @@ def require_cofactor_sizes(formula, tables, choices, inputs, lower_bounds):
 
 
 def synthesize(executable, fixed, total, seconds, check=False, supplied=None,
-               first_input_one=False, first_gate=None, pins=None, cofactor_bounds=False):
+               first_input_one=False, first_gate=None, pins=None, cofactor_bounds=False,
+               six_input_outputs=None):
     f = Formula()
     if first_input_one and pins is not None:
         raise ValueError("use only one type of restriction")
     pins = {0: 1} if first_input_one else pins
-    if pins:
+    if six_input_outputs is not None:
+        if fixed or supplied is not None or pins or cofactor_bounds:
+            raise ValueError("explicit outputs require the six raw inputs")
+        n, inputs, wanted_tables = 6, INPUTS, six_input_outputs
+        allowed = canonical_pairs(n, wanted_tables)
+    elif pins:
         if fixed or supplied is not None:
             raise ValueError("restricted instances start with raw inputs")
         inputs, wanted_tables = restricted_instance(pins)
@@ -151,7 +157,7 @@ def synthesize(executable, fixed, total, seconds, check=False, supplied=None,
                 for v, src in zip(values, table):
                     f.clauses.extend(([-choice, -v, src], [-choice, v, -src]))
         ops = f.one_of(3)
-        if pins and not choices:
+        if (pins or six_input_outputs is not None) and not choices:
             for a in range(n):
                 for b in range(a, n):
                     if (a, b) not in allowed:
