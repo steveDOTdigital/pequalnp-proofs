@@ -25,3 +25,20 @@ The [checker](check-eleven-vertex-dirty-ands.py) selects both operands of every 
 At least one useful terminal is required. Padding only with clean terminals covers circuits with fewer than five AND gates. The positive control uses seven vertex-cover stars and the two dirty signals given by pairs {0,1} and {3,5}. Its edge function was checked on all 2,048 inputs. Run `python3.11 notes/check-eleven-vertex-dirty-ands.py /path/to/cadical` on the research branch.
 
 The AND-gate search does not bound the number of OR gates. A separate exact search tests the assigned 21-total-gate question.
+
+## Seven AND gates suffice with exactly two dirty gates
+
+Write xᵢ for input i. Compute the following two intermediate functions.
+
+- D = (x₇ ∨ x₁₀) ∧ (x₆ ∨ x₉).
+- H = (x₁ ∨ x₄ ∨ x₉) ∧ (x₀ ∨ x₈).
+
+Take the OR of these five terms.
+
+1. x₁₀ ∧ x₀
+2. (x₈ ∨ x₉) ∧ (x₅ ∨ H)
+3. (x₆ ∨ x₇) ∧ (x₃ ∨ D)
+4. (x₅ ∨ x₁₀) ∧ x₂
+5. x₄ ∧ (x₁ ∨ x₁₀)
+
+The binary circuit uses seven AND gates and fifteen OR gates. Every gate reaches the output. H is true when exactly inputs {0,1,3,5} are on. D is true on the independent input {9,10}. The five terminal AND gates are each false on every independent input. The checker evaluates all 2,048 inputs, verifies the edge function and identifies the two dirty gates. Together with the six-AND exclusion, this gives an exact minimum of seven AND gates for the specified range with exactly two dirty gates. The total-size search asks whether any circuit in the range can save one more gate.

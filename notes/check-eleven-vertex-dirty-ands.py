@@ -91,6 +91,41 @@ def fixed_control(f, sides):
         assert answer == positive(p)
 
 
+def check_witness():
+    # Raw wires are numbered 0 through 10. Each entry appends its gate output.
+    gates = [
+        ("or", 7, 10), ("or", 6, 9), ("and", 11, 12),
+        ("or", 1, 4), ("or", 14, 9), ("or", 0, 8), ("and", 15, 16),
+        ("and", 10, 0),
+        ("or", 8, 9), ("or", 5, 17), ("and", 19, 20),
+        ("or", 6, 7), ("or", 3, 13), ("and", 22, 23),
+        ("or", 5, 10), ("and", 25, 2),
+        ("or", 1, 10), ("and", 27, 4),
+        ("or", 18, 21), ("or", 29, 24), ("or", 30, 26), ("or", 31, 28),
+    ]
+    assert len(gates) == 22 and sum(op == "and" for op, _, _ in gates) == 7
+    dirty = set()
+    anchored = set()
+    for mask in range(2048):
+        values = [bool(mask >> j & 1) for j in range(11)]
+        for i, (op, a, b) in enumerate(gates, start=11):
+            val = values[a] and values[b] if op == "and" else values[a] or values[b]
+            values.append(val)
+            if op == "and" and val and not positive(mask):
+                dirty.add(i)
+                if mask == ANCHOR:
+                    anchored.add(i)
+        assert values[-1] == positive(mask)
+    assert dirty == {13, 17} and anchored == {17}
+    live = {32}
+    for i in range(32, 10, -1):
+        if i in live:
+            _, a, b = gates[i-11]
+            live.update((a, b))
+    assert set(range(11, 33)) <= live
+    print("22 gates, 7 ANDs, 2 dirty; verified on all 2,048 inputs", flush=True)
+
+
 def run(solver, k, d, control=False):
     f, sides = problem(k, d)
     if control:
@@ -105,6 +140,7 @@ def run(solver, k, d, control=False):
 
 if __name__ == "__main__":
     solver = sys.argv[1] if len(sys.argv) > 1 else "cadical"
+    check_witness()
     run(solver, 9, 2, control=True)
     for k, d in [(5, 2), (5, 3), (5, 4), (6, 2)]:
         run(solver, k, d)
