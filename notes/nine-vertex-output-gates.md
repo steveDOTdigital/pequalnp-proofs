@@ -63,3 +63,15 @@ Four gates could produce at most 16 reachable-side sets. To realize the 16 disti
 ## Formal coverage of all 397 families
 
 Lean checked each transition in the five-stage backwards enumeration. At each gate it checks that a discarded child has too few rows to reach 16, or that an explicit permutation sends every row to the named next family while fixing the unprocessed sides. The theorem `classified5` proves that any realization must fit one of the 397 listed families. The independent Python search excludes all of them. Formal verification of the final row-matching search is still in progress.
+
+## Complete search certificates
+
+The [Lean source](NineVertexCornerReduction.lean) includes a search certificate for each of the 397 families. Each certificate specifies which vertex to split on at each node. The checker independently enumerates all admissible profiles for that vertex. It discards a profile only when a group of distinct target rows would require more corners than are available. This version checks all 200,907 nodes without symmetry pruning.
+
+Lean's executable evaluator replayed every certificate and matched all 397 expected node counts. The theorem `six_of_replay`, checked with the three standard axioms, derives the six-gate lower bound from the single Boolean equality `allBooks = true`. Independent kernel checks established the exclusions for all 150 families with at most 18 corners, and for families 13 and 300, both with 22 corners. The remaining kernel reductions are separate from the completed executable check. The upstream assignment still requires the complete kernel proof.
+
+From the repository's `lean` directory, reproduce the executable check on the research branch with:
+
+```sh
+(git show research/independent-results:notes/NineVertexCornerReduction.lean && echo '#eval PEqualNP.Outside.L_meta_908_aux.allBooks') | lake env lean --stdin
+```
