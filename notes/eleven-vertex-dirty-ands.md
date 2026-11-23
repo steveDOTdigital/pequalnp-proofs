@@ -42,3 +42,5 @@ Take the OR of these five terms.
 5. x₄ ∧ (x₁ ∨ x₁₀)
 
 The binary circuit uses seven AND gates and fifteen OR gates. Every gate reaches the output. H is true when exactly inputs {0,1,3,5} are on. D is true on the independent input {9,10}. The five terminal AND gates are each false on every independent input. The checker evaluates all 2,048 inputs, verifies the edge function and identifies the two dirty gates. Together with the six-AND exclusion, this gives an exact minimum of seven AND gates for the specified range with exactly two dirty gates. The total-size search asks whether any circuit in the range can save one more gate.
+
+The [Lean proof](ElevenVertexRangeNineteen.lean) checks the circuit in the project evaluator, its size, its seven AND gates, both negative examples and the five clean terminals. Its edge predicate agrees with the exact list of natural-number pairs on the desk. The correctness and clean-terminal theorems use only propositional extensionality, classical choice and quotient soundness.
