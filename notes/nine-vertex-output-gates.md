@@ -54,7 +54,7 @@ Run `python3.11 notes/check-nine-vertex-corners.py`. This verification uses no S
 
 Starting from the singleton empty row, process gates from the final output towards the inputs. At each gate, select any subset of the already processed sides that read it. A row splits into its two choices precisely when it hits one of these sides or the gate is itself an output. Otherwise it stays unchanged. Unused gates, shared parents, and reads of output gates are all allowed. Families too small to reach 16 rows even by doubling at every subsequent stage are discarded. Renaming gate and side labels preserves the test.
 
-Lean verified that every correct circuit of size at most five yields an accepting family in this backwards recursion. The independent checker found 2, 3, 8, 33 and 397 families after the five successive stages. No final family realizes the required rows. The numerical exclusion in Lean remains open. [Formal reduction](NineVertexCornerReduction.lean) · [Reproduce the search](check-nine-vertex-backwards.py)
+Lean verified that every correct circuit of size at most five yields an accepting family in this backwards recursion. The independent checker found 2, 3, 8, 33 and 397 families after the five successive stages. No final family realizes the required rows. The formal exclusion is included in the complete proof linked below. [Formal reduction](NineVertexCornerReduction.lean) · [Reproduce the search](check-nine-vertex-backwards.py)
 
 ## Formal lower bound of five
 
@@ -62,13 +62,13 @@ Four gates could produce at most 16 reachable-side sets. To realize the 16 disti
 
 ## Formal coverage of all 397 families
 
-Lean checked each transition in the five-stage backwards enumeration. At each gate it checks that a discarded child has too few rows to reach 16, or that an explicit permutation sends every row to the named next family while fixing the unprocessed sides. The theorem `classified5` proves that any realization must fit one of the 397 listed families. The independent Python search excludes all of them. Formal verification of the final row-matching search is still in progress.
+Lean checked each transition in the five-stage backwards enumeration. At each gate it checks that a discarded child has too few rows to reach 16, or that an explicit permutation sends every row to the named next family while fixing the unprocessed sides. The theorem `classified5` proves that any realization must fit one of the 397 listed families. The independent Python search excludes all of them. The final row-matching proof uses the symmetry-reduced certificates below.
 
 ## Complete search certificates
 
 The [Lean source](NineVertexCornerReduction.lean) includes a search certificate for each of the 397 families. Each certificate specifies which vertex to split on at each node. The checker independently enumerates all admissible profiles for that vertex. It discards a profile only when a group of distinct target rows would require more corners than are available. This version checks all 200,907 nodes without symmetry pruning.
 
-Lean's executable evaluator replayed every certificate and matched all 397 expected node counts. The theorem `six_of_replay`, checked with the three standard axioms, derives the six-gate lower bound from the single Boolean equality `allBooks = true`. Independent kernel checks established the exclusions for all 150 families with at most 18 corners, and for families 13 and 300, both with 22 corners. The remaining kernel reductions are separate from the completed executable check. The upstream assignment still requires the complete kernel proof.
+Lean's executable evaluator replayed every certificate and matched all 397 expected node counts. The theorem `six_of_replay`, checked with the three standard axioms, derives the six-gate lower bound from the single Boolean equality `allBooks = true`. Independent kernel checks established the exclusions for all 150 families with at most 18 corners, and for families 13 and 300, both with 22 corners. The symmetry-reduced version below supplies the complete kernel proof.
 
 From the repository's `lean` directory, reproduce the executable check on the research branch with:
 
@@ -80,7 +80,7 @@ From the repository's `lean` directory, reproduce the executable check on the re
 
 The second replay checks the same 397 families in 57,081 node visits. At a split it can discard a profile if a verified symmetry fixes the earlier choices and produces a smaller profile. It can also reject a profile by checking only the indicated row-count inequalities. The Lean checker verifies both tests and enumerates the surviving profiles itself. The largest family, with all 32 corners, takes 14 visits in this replay and 20,371 in the original.
 
-The executable check returned true. The theorem `six_of_compact` derives the stated six-gate lower bound from that Boolean result. Separate kernel checks have also excluded 300 individual families, including every family with at most 22 corners. The complete kernel replay is pending.
+The executable check returned true. The theorem `six_of_compact` derives the stated six-gate lower bound from that Boolean result. The [complete Lean proof](https://github.com/steveDOTdigital/pequalnp-proofs/blob/3f1e897c5b0c7a32a4151627a23ec49610b8e35c/lean/PEqualNP/Outside/L_meta_908.lean) excludes all 397 families and proves the posted lower bound. The final theorem depends only on propositional extensionality, classical choice and quotient soundness. The desk acknowledged [submission #2826](https://github.com/brilliant-hq/pequalnp-proofs/pull/2826). The project merged [an earlier submission](https://github.com/brilliant-hq/pequalnp-proofs/pull/2688) and closed ours.
 
 From the repository's `lean` directory:
 
