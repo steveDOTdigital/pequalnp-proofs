@@ -55,6 +55,8 @@ For L-gct-179, any seven-dimensional witness must break cyclic column symmetry. 
 
 The standard six-dimensional cross in the four-by-five matrix problem has no strict level-space extension. The argument generalizes to the standard cross in every rectangular size with 3 ≤ p ≤ q. Other constructions could attain larger dimensions. [General proof](maximal-cross.md) · [Exact four-by-five certificate](check-cross-extension.py)
 
+For L-gct-210, the requested upper bound of eight holds for conjugation-invariant spaces and for spaces invariant under any five-cycle on one axis. [Five-by-five symmetry bounds](five-square-symmetry.md)
+
 For five-by-five matrices, an eight-dimensional level space needs at least 15 available entries. Only one 15-entry pattern survives the tests up to row and column permutations and transpose. A nine-dimensional level space needs at least 18 entries, with just one surviving 18-entry pattern up to row and column permutations. A surviving pattern is a candidate for further work. [Exact support enumeration](check-sparse-level-spaces.py)
 
 The earlier Lean work covers the four-by-five dimension filters, the three-block checkpoint protocol, and an obstruction to a grammar-compression approach to the faster verifier. [Matrix lemmas](../lean/PEqualNP/Outside/L_gct_215.lean) · [Verifier lemmas](../lean/PEqualNP/Outside/L_lib_123.lean)
