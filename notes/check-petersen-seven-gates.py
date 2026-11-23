@@ -141,6 +141,46 @@ def exclude_six(row, count, solver):
         raise RuntimeError(("six-gate exclusion inconclusive", result.returncode, row))
 
 
+def minimum_nonmonotone(row, count, solver):
+    """Find the fewest outside coordinates that must violate monotonicity."""
+    data = run_path(str(Path(__file__).with_name("search-petersen-first-or.py")))
+    vertices = [1, 3, 4, 5, 6, 7, 8, 9]
+    labels = []
+    for y in range(256):
+        x = sum(((y >> i) & 1) << v for i, v in enumerate(vertices))
+        labels.append(sum(((data["TARGET"] >> (x | (p >> 1) | ((p & 1) << 2))) & 1) << p
+                          for p in range(4)))
+    for size in range(count + 1):
+        for free in combinations(range(count), size):
+            formula = data["Formula"]()
+            wires = [formula.vars(count) for _ in labels]
+            for y, label in enumerate(labels):
+                for z, r in enumerate(row):
+                    if r != label:
+                        formula.clauses.append([-v if z & (1 << i) else v
+                                                for i, v in enumerate(wires[y])])
+                for j in range(8):
+                    if not y & (1 << j):
+                        for i in range(count):
+                            if i not in free:
+                                formula.clauses.append([-wires[y][i], wires[y | (1 << j)][i]])
+            result = subprocess.run([solver, "-q", "--check", "--checkproof=2", "-t", "60"],
+                                    input=formula.dimacs(), text=True, capture_output=True, timeout=80)
+            if result.returncode == 20 and "s UNSATISFIABLE" in result.stdout:
+                continue
+            if result.returncode != 10 or "s SATISFIABLE" not in result.stdout:
+                raise RuntimeError(("outside monotonicity check inconclusive", result.returncode))
+            model = {int(v) for line in result.stdout.splitlines() if line.startswith("v ")
+                     for v in line.split()[1:]}
+            images = [sum((v in model) << i for i, v in enumerate(w)) for w in wires]
+            assert all(row[z] == label for z, label in zip(images, labels))
+            required = sum(1 << i for i in range(count) if i not in free)
+            assert all(not (images[y] & ~images[y | (1 << j)] & required)
+                       for y in range(256) for j in range(8))
+            return size
+    raise AssertionError("no encoding of the five rows")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--solver", help="also prove sharpness for all rows in each remaining table")
@@ -157,7 +197,10 @@ if __name__ == "__main__":
         assert (survivors, len(final)) == {"not": (0, 0), "fanout": (18, 2),
                                            "tree": (336, 9)}[kind]
         print("After six-gate replacements:", survivors, "tables in", len(final), "classes")
-        for r in final:
+        for index, r in enumerate(final):
             print(" ".join(str(x) if x != INVALID else "-" for x in r))
             if args.solver:
                 exclude_six(r, count, args.solver)
+                needed = minimum_nonmonotone(r, count, args.solver)
+                assert needed == int(index in ({1} if count == 3 else {1, 3, 5}))
+                print("Minimum nonmonotone outside signals:", needed)
