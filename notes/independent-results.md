@@ -32,6 +32,16 @@ For the gate lower bound, count the gates on paths from the two center inputs to
 
 The exhaustive check independently enumerates all normalized programs with one through four gates, including NOT, arbitrary fanout, and a fresh independent outside bit at each gate. Fixing both centers can leave some gates computing outside-only functions. The count alone gives no additive gate saving when these vertices are deleted.
 
+### Fixing both adjacent vertices can leave one extra gate
+
+Even for a minimum circuit on a tree, setting both adjacent degree-three inputs to false and propagating constants can save six gates when the edge-and-cover potential drops by seven. This rules out a simultaneous-deletion step based solely on constant propagation at this pair.
+
+Take the tree with edges `ua, ub, uv, vc, vd, ce, ef, dg`. The edges `ua, vc, ef, dg` form a matching of size four, and `u,c,d,f` cover every edge. The circuit that ORs the terms `u(a OR b OR v)`, `c(v OR e)`, `d(v OR g)`, and `ef` has eleven binary gates. Here juxtaposition means AND. The checked forest lower bound gives the same minimum, since the tree has eight edges and minimum cover size four. [Forest lower bound](../lean/PEqualNP/MetaComplexity/Helpers/ForestBound.lean)
+
+Fixing `u=v=false` leaves three edge terms `ce, dg, ef`, taking five gates. Factoring out `e` gives a four-gate circuit. The remaining forest has three edges and minimum cover size two, so four is optimal. Both endpoint degrees, the two cover sizes, and all 512 input assignments can be checked directly from the displayed tree and circuit.
+
+There is a matching upper bound of one extra gate throughout the minimum-cover construction. Assign each edge to one endpoint in a minimum vertex cover of size `t`. Build one star per center and OR the nonempty stars together. For adjacent centers of deletion `u,v`, let the residual graph have `e'` edges and cover number `t'`. Assume it has an edge. After setting both inputs to false and propagating constants, the surviving stars have distinct centers and use exactly `e' + r - 1` gates, where `r` counts the surviving stars. At least one original star disappears because the cover meets `uv`, hence `r ≤ t - 1`. Adding both deleted vertices to a residual cover gives `t ≤ t' + 2`. The simplified circuit therefore exceeds the residual cover construction by at most one gate. Applying this argument to arbitrary circuits would require a separate structural result.
+
 ## Permanent and verification assignments
 
 The standard six-dimensional cross in the four-by-five matrix problem has no strict level-space extension. The argument generalizes to the standard cross in every rectangular size with 3 ≤ p ≤ q. Other constructions could attain larger dimensions. [General proof](maximal-cross.md) · [Exact four-by-five certificate](check-cross-extension.py)
