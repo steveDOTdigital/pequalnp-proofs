@@ -48,7 +48,7 @@ class Formula:
         return header + "".join(" ".join(map(str, c)) + " 0\n" for c in self.clauses)
 
 
-def synthesize(executable, fixed, total, seconds):
+def synthesize(executable, fixed, total, seconds, check=False):
     f = Formula()
     prefix = INPUTS.copy()
     for k in range(fixed):
@@ -56,9 +56,14 @@ def synthesize(executable, fixed, total, seconds):
         prefix.extend(products + [products[0] | products[1], targets()[k]])
     tables = []
     for bits in prefix:
-        table = f.vars(64)
+        # Six extra rows track structural dependence. An unreached input
+        # cannot affect an output. This also applies to the fixed prefix.
+        dependencies = sum(1 << i for i in range(6) if any(
+            ((bits >> r) ^ (bits >> (r ^ (1 << i)))) & 1 for r in range(64)))
+        encoded = bits | (dependencies << 64)
+        table = f.vars(70)
         tables.append(table)
-        f.clauses.extend([v if bits & (1 << row) else -v] for row, v in enumerate(table))
+        f.clauses.extend([v if encoded & (1 << row) else -v] for row, v in enumerate(table))
     choices = []
     for _ in range(total - 5 * fixed):
         ports = []
@@ -66,7 +71,7 @@ def synthesize(executable, fixed, total, seconds):
         for _ in range(2):
             sel = f.one_of(len(tables))
             selectors.append(sel)
-            values = f.vars(64)
+            values = f.vars(70)
             ports.append(values)
             for choice, table in zip(sel, tables):
                 for v, src in zip(values, table):
@@ -99,11 +104,14 @@ def synthesize(executable, fixed, total, seconds):
             for i, previous in enumerate(prev_left):
                 for smaller in selectors[0][:i]:
                     f.clauses.append([-equal_right, -previous, -smaller])
-        output = f.vars(64)
-        for a, b, y in zip(*ports, output):
-            f.clauses.extend(([-ops[0], -y, a], [-ops[0], -y, b], [-ops[0], y, -a, -b],
-                              [-ops[1], y, -a], [-ops[1], y, -b], [-ops[1], -y, a, b],
-                              [-ops[2], y, a], [-ops[2], -y, -a]))
+        output = f.vars(70)
+        for row, (a, b, y) in enumerate(zip(*ports, output)):
+            if row < 64:
+                f.clauses.extend(([-ops[0], -y, a], [-ops[0], -y, b], [-ops[0], y, -a, -b],
+                                  [-ops[1], y, -a], [-ops[1], y, -b], [-ops[1], -y, a, b],
+                                  [-ops[2], y, a], [-ops[2], -y, -a]))
+            else:
+                f.clauses.extend(([y, -a], [y, -b], [-y, a, b]))
         tables.append(output)
         choices.append((ops, *selectors))
     outputs = []
@@ -112,7 +120,7 @@ def synthesize(executable, fixed, total, seconds):
         out = f.one_of(len(tables) - len(prefix))
         outputs.append(out)
         for selector, table in zip(out, tables[len(prefix):]):
-            f.clauses.extend([-selector, v if wanted & (1 << row) else -v]
+            f.clauses.extend([-selector, v if row >= 64 or wanted & (1 << row) else -v]
                              for row, v in enumerate(table))
     # Remove dead logic in a smallest solution, then pad with copies of an
     # output if needed. Thus every appended gate can have a reader.
@@ -124,7 +132,10 @@ def synthesize(executable, fixed, total, seconds):
         f.clauses.append(readers)
     print(f"{fixed} fixed outputs, {total} gate budget, {f.count} variables, "
           f"{len(f.clauses)} clauses", flush=True)
-    result = subprocess.run([executable, "-q", "-t", str(seconds)], input=f.dimacs(),
+    command = [executable, "-q", "-t", str(seconds)]
+    if check:
+        command.extend(("--check", "--checkproof=2"))
+    result = subprocess.run(command, input=f.dimacs(),
                             capture_output=True, text=True, timeout=seconds + 15)
     if result.returncode == 20 and "s UNSATISFIABLE" in result.stdout:
         print("UNSAT")
@@ -152,5 +163,6 @@ if __name__ == "__main__":
     parser.add_argument("--fixed", type=int, choices=(0, 1, 2), default=0)
     parser.add_argument("--gates", type=int, default=14)
     parser.add_argument("--seconds", type=int, default=60)
+    parser.add_argument("--check", action="store_true", help="enable CaDiCaL's internal proof checker")
     args = parser.parse_args()
-    synthesize(args.solver, args.fixed, args.gates, args.seconds)
+    synthesize(args.solver, args.fixed, args.gates, args.seconds, args.check)
