@@ -75,3 +75,15 @@ From the repository's `lean` directory, reproduce the executable check on the re
 ```sh
 (git show research/independent-results:notes/NineVertexCornerReduction.lean && echo '#eval PEqualNP.Outside.L_meta_908_aux.allBooks') | lake env lean --stdin
 ```
+
+## Symmetry-reduced certificates
+
+The second replay checks the same 397 families in 57,081 node visits. At a split it can discard a profile if a verified symmetry fixes the earlier choices and produces a smaller profile. It can also reject a profile by checking only the indicated row-count inequalities. The Lean checker verifies both tests and enumerates the surviving profiles itself. The largest family, with all 32 corners, takes 14 visits in this replay and 20,371 in the original.
+
+The executable check returned true. The theorem `six_of_compact` derives the stated six-gate lower bound from that Boolean result. Separate kernel checks have also excluded 300 individual families, including every family with at most 22 corners. The complete kernel replay is pending.
+
+From the repository's `lean` directory:
+
+```sh
+(git show research/independent-results:notes/NineVertexCornerReduction.lean && echo '#eval PEqualNP.Outside.L_meta_908_aux.allCompact') | lake env lean --stdin
+```
