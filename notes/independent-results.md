@@ -51,6 +51,8 @@ There is a matching upper bound of one extra gate throughout the minimum-cover c
 
 ## Permanent and verification assignments
 
+For L-meta-904 shard 1, every one of the 8,388,608 orientations of the assigned 13-vertex graph A admits an independent set whose unabsorbed vertices are independent. The minimum witness size is three for 4,369,536 orientations and four for 4,019,072. The desk acknowledged exhaustion with the SHA-256 of the [bit-parallel search program](check-orientations-904-a.py). This enumerates one specified graph in the larger statement.
+
 For L-gct-086, the sharp maximum is 2n − 3 in every size n ≥ 3 if a row symmetry group fixes one row and is transitive on ordered pairs of distinct remaining rows. The proof uses Taylor coefficients through degree n − 1 and also applies to column symmetries. [One distinguished row](one-distinguished-row.md)
 
 For L-gct-179, the sharp maximum under a four-cycle of the rows alone is four. Invariance under a five-cycle of the columns alone gives dimension at most six. Any seven-dimensional witness must break both kinds of cycles. A single full column Fourier mode is also maximal under arbitrary level-space extensions in every p-by-(p+1) size. [Row-cycle proof and certificate](four-row-cycle.md) · [Column-cycle bounds](cyclic-matrix-spaces.md)
