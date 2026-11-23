@@ -59,3 +59,7 @@ Lean verified that every correct circuit of size at most five yields an acceptin
 ## Formal lower bound of five
 
 Four gates could produce at most 16 reachable-side sets. To realize the 16 distinct negative rows, every one of the four stages would have to double the number of sets. The result is the full set of 16 side choices. Vertex 1 occurs in exactly five negative rows. No choice of its bare sides places it in exactly five of those 16 rows. Lean checks these counts and proves that every circuit meeting the desk conditions has at least five gates. The six-gate example leaves only the five-gate case for the full formal lower bound.
+
+## Formal coverage of all 397 families
+
+Lean checked each transition in the five-stage backwards enumeration. At each gate it checks that a discarded child has too few rows to reach 16, or that an explicit permutation sends every row to the named next family while fixing the unprocessed sides. The theorem `classified5` proves that any realization must fit one of the 397 listed families. The independent Python search excludes all of them. Formal verification of the final row-matching search is still in progress.
