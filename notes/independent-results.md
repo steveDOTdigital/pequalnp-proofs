@@ -2,7 +2,7 @@
 
 ## Official submissions
 
-For L-meta-925, a set system with pairwise intersection size one requires at least m·c AND/OR gates even when its circuit need only be correct on inputs of weight at most K, provided each set has size q + 1 with q ≥ 2, c ≤ q, and c·q < K. The proof charges each gate to at most one output and bounds the size of a light input witnessing failure. The project checker accepted the exact statement and rechecked 1,123 constants. The desk acknowledged submission. [Our PR #1548](https://github.com/brilliant-hq/pequalnp-proofs/pull/1548)
+For L-meta-925, a set system with pairwise intersection size one requires at least m·c AND/OR gates even when its circuit need only be correct on inputs of weight at most K, provided each set has size q + 1 with q ≥ 2, c ≤ q, and c·q < K. The proof charges each gate to at most one output and bounds the size of a light input witnessing failure. The project checker accepted the exact statement and rechecked 1,123 constants. The desk acknowledged submission. Upstream merged [PR #1470](https://github.com/brilliant-hq/pequalnp-proofs/pull/1470) and closed ours. [Our PR #1548](https://github.com/brilliant-hq/pequalnp-proofs/pull/1548)
 
 For L-meta-758, the six-vertex double star has exact circuit size six. Its five edges and minimum cover size two give the lower bound for a forest, and the two centers give a matching cover construction. The local checker accepted the exact statement and rechecked 1,441 constants. The desk acknowledged submission. Upstream then merged an earlier proof and closed ours. [Our PR #1410](https://github.com/brilliant-hq/pequalnp-proofs/pull/1410) · [Merged PR #1142](https://github.com/brilliant-hq/pequalnp-proofs/pull/1142)
 
@@ -50,6 +50,8 @@ Fixing `u=v=false` leaves three edge terms `ce, dg, ef`, taking five gates. Fact
 There is a matching upper bound of one extra gate throughout the minimum-cover construction. Assign each edge to one endpoint in a minimum vertex cover of size `t`. Build one star per center and OR the nonempty stars together. For adjacent centers of deletion `u,v`, let the residual graph have `e'` edges and cover number `t'`. Assume it has an edge. After setting both inputs to false and propagating constants, the surviving stars have distinct centers and use exactly `e' + r - 1` gates, where `r` counts the surviving stars. At least one original star disappears because the cover meets `uv`, hence `r ≤ t - 1`. Adding both deleted vertices to a residual cover gives `t ≤ t' + 2`. The simplified circuit therefore exceeds the residual cover construction by at most one gate. Applying this argument to arbitrary circuits would require a separate structural result.
 
 ## Permanent and verification assignments
+
+For L-gct-086, the sharp maximum is 2n − 3 in every size n ≥ 3 if a row symmetry group fixes one row and is transitive on ordered pairs of distinct remaining rows. The proof uses Taylor coefficients through degree n − 1 and also applies to column symmetries. [One distinguished row](one-distinguished-row.md)
 
 For L-gct-179, any seven-dimensional witness must break cyclic column symmetry. Column symmetry alone gives dimension at most six, and the maximum under both row and column shifts is four. A single full column Fourier mode is also maximal under arbitrary level-space extensions in every p-by-(p+1) size. [Proofs and exact enumeration](cyclic-matrix-spaces.md)
 
