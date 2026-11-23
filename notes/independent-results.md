@@ -61,4 +61,6 @@ For L-gct-210, the requested upper bound of eight holds for conjugation-invarian
 
 For five-by-five matrices, an eight-dimensional level space needs at least 15 available entries. Only one 15-entry pattern survives the tests up to row and column permutations and transpose. A nine-dimensional level space needs at least 19 entries. The [Hessian and cubic argument](five-square-symmetry.md#a-nine-dimensional-space-needs-at-least-nineteen-positions) excludes the last 18-entry pattern. [Exact support enumeration](check-sparse-level-spaces.py)
 
+For L-lib-123, a deterministic single-head, single-tape run of T steps has a two-block verification protocol of cost O(T^(2/3) polylog T), apart from the input scan. Lean checks the offset and checkpoint counts and the local replay composition. The general multistack transfer remains open. [Protocol and limits](single-tape-visits.md)
+
 The earlier Lean work covers the four-by-five dimension filters, the three-block checkpoint protocol, and an obstruction to a grammar-compression approach to the faster verifier. [Matrix lemmas](../lean/PEqualNP/Outside/L_gct_215.lean) · [Verifier lemmas](../lean/PEqualNP/Outside/L_lib_123.lean)
