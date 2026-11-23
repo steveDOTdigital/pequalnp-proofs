@@ -1,6 +1,6 @@
 # One NOT gate and ORs of linear set families
 
-L-meta-955 asks for a binary AND/OR circuit with at most one NOT that computes all the disjunctions of a family of sets using fewer than `Σ(|S|−1)` gates. Every set must have at least two points and two different sets can share at most one point. The following argument and [exhaustive search](check-one-not-linear-ors.py) exclude every instance on at most seven inputs. The family of arbitrary monotone outputs in [the six-input counterexample](six-input-negation.md) includes conjunctions and therefore solves a different problem.
+L-meta-955 asks for a binary AND/OR circuit with at most one NOT that computes all the disjunctions of a family of sets using fewer than `Σ(|S|−1)` gates. Every set must have at least two points and two different sets can share at most one point. The following argument and [exhaustive search](check-one-not-linear-ors.py) exclude every instance on at most eight inputs. The family of arbitrary monotone outputs in [the six-input counterexample](six-input-negation.md) includes conjunctions and therefore solves a different problem.
 
 ## A counting argument for one NOT
 
@@ -42,5 +42,23 @@ Counting the m target gates, the t different additional parents, and the NOT giv
 ## Seven inputs
 
 There are thirteen core types on seven inputs after the largest-output bound. The predecessor bound covers twelve. The remaining type has two four-point sets meeting in one point. All nine compatible two-point disjunctions were supplied for free. A strict saving would leave at most three additional gates beyond the mandatory outputs. The search found no witness, with 1 initial state, 166 one-gate states, 16,947 two-gate states and 3,431,667 terminal visits. Terminal visits in this larger run include repeated states to bound memory. Together the counting argument and the exhaustive check exclude every system on at most seven inputs. Both also allow arbitrary subsets of the compatible pair outputs.
+
+## Exhausting the gate budget
+
+Write E for the sum of |S|−3 over the t sets of size at least three. The separate-construction budget is m+t+E. The predecessor bound handles E≤1. If E=2, any strict saving with one NOT uses precisely the m first target gates, the t selected predecessors and the NOT. Each gate has exactly one of those roles.
+
+Suppose a large target S first appears at an AND. It needs two distinct parents that dominate its disjunction. Equal parents, or a constant-true parent, would give an earlier copy of S. Besides its own chosen predecessor, none of the available wires can dominate S. A raw input misses a singleton of S. Another target T and any selected OR predecessor for T miss a singleton of S outside T. An AND predecessor for T is false when exactly the points outside T are on, whereas S is true there. A nonconstant NOT is false at the all-one input. This excludes AND as the first gate for every large target.
+
+Every selected predecessor is now bounded above by its own target and true on at least two of that target's singletons. Choose a target S of size at least four, which exists since E=2. Both parents of its final OR are bounded above by S. Earlier wires of this kind consist only of S's own selected predecessor H, singletons in S and the constant false. Every other target or selected predecessor is true on some singleton outside S. Thus H is true on at least three singletons of S. An OR computing H could use only earlier wires bounded above by S, which together cover at most two singletons. An AND computing H would require both parents true on at least three singletons of S. At least one parent must also be false at zero, since H is false there. Before H, any such wire is a raw input, another target, another selected predecessor or constant false, each covering at most one singleton of S. A NOT false at zero is identically false because its operand is monotone. This contradiction excludes E=2 for any number of inputs.
+
+## A connectivity bound
+
+Retain a nonempty subfamily I of targets. Let v count its points and c count its connected components, joining points that belong to a common retained set. Replace the first output gate of each omitted target T by a free constant true. On the slice where all points outside a retained S are on, every omitted disjunction is true, because T has a point outside S. Induction through the gates shows that the modified circuit still computes the disjunction of S on that entire slice. Its output therefore has a path from each input in S.
+
+Start with one component per raw input. For each wire, track the raw inputs with a path to it, giving constants empty support. At a binary gate, joining the two nonempty parent supports merges at most two current components. Unary gates merge none. At the end all points of each retained S belong to one component. Even allowing paths through extra inputs, this takes at least v−c merges. Add back the m−|I| replaced gates. If the original circuit used one NOT, it contributes one further gate because it merges no components and cannot itself be a target. This gives at least m−|I|+v−c+1 gates. In particular, with exactly two large sets, retain both and omit all pairs. Whether the large sets meet in one point or are disjoint, v−c equals the sum of their two individual disjunction costs. No saving is possible.
+
+## Eight inputs
+
+If the largest set has at least six points, at most two points lie outside it. Every other large set needs at least two outside points, so there can be at most one, of size three. The largest-output bound applies. If the largest set has five points, E≥3 requires another set of size at least four. It must have size four and meet the five-point set in one point. Together they cover all eight points. A third large set cannot meet each in at most one point, so the two-set connectivity bound applies. If all sizes are at most four, E≥3 requires three four-point sets. Their pairwise intersections have total size at most three, so their union has at least nine points. These cases exclude every witness on at most eight inputs.
 
 The unrestricted assignment remains open.
