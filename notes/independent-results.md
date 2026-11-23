@@ -53,7 +53,7 @@ There is a matching upper bound of one extra gate throughout the minimum-cover c
 
 For L-gct-086, the sharp maximum is 2n − 3 in every size n ≥ 3 if a row symmetry group fixes one row and is transitive on ordered pairs of distinct remaining rows. The proof uses Taylor coefficients through degree n − 1 and also applies to column symmetries. [One distinguished row](one-distinguished-row.md)
 
-For L-gct-179, any seven-dimensional witness must break cyclic column symmetry. Column symmetry alone gives dimension at most six, and the maximum under both row and column shifts is four. A single full column Fourier mode is also maximal under arbitrary level-space extensions in every p-by-(p+1) size. [Proofs and exact enumeration](cyclic-matrix-spaces.md)
+For L-gct-179, the sharp maximum under a four-cycle of the rows alone is four. Invariance under a five-cycle of the columns alone gives dimension at most six. Any seven-dimensional witness must break both kinds of cycles. A single full column Fourier mode is also maximal under arbitrary level-space extensions in every p-by-(p+1) size. [Row-cycle proof and certificate](four-row-cycle.md) · [Column-cycle bounds](cyclic-matrix-spaces.md)
 
 The standard six-dimensional cross in the four-by-five matrix problem has no strict level-space extension. The argument generalizes to the standard cross in every rectangular size with 3 ≤ p ≤ q. Other constructions could attain larger dimensions. [General proof](maximal-cross.md) · [Exact four-by-five certificate](check-cross-extension.py)
 
