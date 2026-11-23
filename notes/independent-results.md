@@ -2,6 +2,8 @@
 
 ## Official submissions
 
+For L-meta-925, a set system with pairwise intersection size one requires at least m·c AND/OR gates even when its circuit need only be correct on inputs of weight at most K, provided each set has size q + 1 with q ≥ 2, c ≤ q, and c·q < K. The proof charges each gate to at most one output and bounds the size of a light input witnessing failure. The project checker accepted the exact statement and rechecked 1,123 constants. The desk acknowledged submission. [Our PR #1548](https://github.com/brilliant-hq/pequalnp-proofs/pull/1548)
+
 For L-meta-758, the six-vertex double star has exact circuit size six. Its five edges and minimum cover size two give the lower bound for a forest, and the two centers give a matching cover construction. The local checker accepted the exact statement and rechecked 1,441 constants. The desk acknowledged submission. Upstream then merged an earlier proof and closed ours. [Our PR #1410](https://github.com/brilliant-hq/pequalnp-proofs/pull/1410) · [Merged PR #1142](https://github.com/brilliant-hq/pequalnp-proofs/pull/1142)
 
 For L-meta-791, the assigned eight-gate circuit detects an active edge on a path of seven vertices. The proof checks its size, the fan-in of every gate, and the output on all 128 input assignments. The local project checker rechecked 1,079 constants and the desk acknowledged submission. [Our PR #1342](https://github.com/brilliant-hq/pequalnp-proofs/pull/1342)
