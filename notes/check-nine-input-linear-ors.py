@@ -141,6 +141,8 @@ def encode(core, n, spares):
         f.put(*selectors.values())
         return bits, selectors
 
+    for i in range(spares - 1):
+        f.put(before[f"w{i}", f"w{i+1}"])
     for gate in gates:
         options = [name for name in wires if name != gate]
         if gate == "h":
@@ -155,7 +157,9 @@ def encode(core, n, spares):
             row, helper = core[i], f"a{i}"
             f.put(before[helper, gate])
             left = wires[helper]
-            right, _ = choose(gate, [b for b in options if b != helper])
+            # A different target or its private parent cannot be the second parent.
+            right, _ = choose(gate, [b for b in options if b.startswith("w") or
+                                     (b.startswith("x") and row >> int(b[1:]) & 1)])
             singletons = [left[points.index(1 << x)] for x in range(n) if row >> x & 1]
             # OR private parent covers two singletons. AND private parent is
             # false with all outside variables on.
