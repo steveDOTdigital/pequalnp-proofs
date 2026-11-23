@@ -70,8 +70,38 @@ def canonical_pairs(n, wanted):
             if all((b,a) <= (max(p[a],p[b]),min(p[a],p[b])) for p in autos)}
 
 
+def require_cofactor_sizes(formula, tables, choices, inputs, lower_bounds):
+    """Count gates that still supply distinct nonconstant functions after pinning."""
+    n = len(inputs)
+    rows = 1 << n
+    differences = {}
+    for (i, value), minimum in lower_bounds.items():
+        selected = [x for x in range(rows) if ((x >> i) & 1) == value]
+        novel = formula.vars(len(choices))
+        # Every set of budget - minimum + 1 gates contains a surviving gate.
+        formula.clauses.extend(list(group) for group in combinations(novel, len(choices)-minimum+1))
+        for k, (_, left, right) in enumerate(choices):
+            new, wire = novel[k], tables[n+k]
+            formula.clauses.extend(([-new, -left[i]], [-new, -right[i]],
+                                    [-new, *[wire[x] for x in selected]],
+                                    [-new, *[-wire[x] for x in selected]]))
+            for source, truth in enumerate(inputs):
+                if source != i:
+                    formula.clauses.append([-new, *[-wire[x] if (truth >> x) & 1 else wire[x]
+                                                    for x in selected]])
+            for prior in range(k):
+                key = (prior, k)
+                if key not in differences:
+                    xor = formula.vars(rows)
+                    differences[key] = xor
+                    for d, a, b in zip(xor, tables[n+prior], wire):
+                        # A claimed difference requires opposite truth values.
+                        formula.clauses.extend(([-d, a, b], [-d, -a, -b]))
+                formula.clauses.append([-new, *[differences[key][x] for x in selected]])
+
+
 def synthesize(executable, fixed, total, seconds, check=False, supplied=None,
-               first_input_one=False, first_gate=None, pins=None):
+               first_input_one=False, first_gate=None, pins=None, cofactor_bounds=False):
     f = Formula()
     if first_input_one and pins is not None:
         raise ValueError("use only one type of restriction")
@@ -190,6 +220,14 @@ def synthesize(executable, fixed, total, seconds, check=False, supplied=None,
         for _, left, right in choices[i + 1:]:
             readers.extend((left[wire], right[wire]))
         f.clauses.append(readers)
+    if cofactor_bounds:
+        if fixed or pins not in (None, {0: 1}):
+            raise ValueError("these bounds apply to the raw problem or its first-input true restriction")
+        # For either remaining point bit, the zero/one cofactors need 6/7
+        # gates. For any line bit the corresponding lower bounds are 7/6.
+        lower = ({(i, v): (6 + v if i < 2 else 7 - v) for i in range(5) for v in (0, 1)}
+                 if pins else {(i, 1): 11 for i in range(6)})
+        require_cofactor_sizes(f, tables, choices, inputs, lower)
     print(f"{fixed} fixed outputs, {total} gate budget, {f.count} variables, "
           f"{len(f.clauses)} clauses", flush=True)
     command = [executable, "-q", "-t", str(seconds)]
@@ -228,6 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--check", action="store_true", help="enable CaDiCaL's internal proof checker")
     parser.add_argument("--first-input-one", action="store_true", help="fix the first raw input to true")
+    parser.add_argument("--cofactor-bounds", action="store_true")
     parser.add_argument("--first", nargs=3, metavar=("OP","A","B"),
                         help="restrict the first gate to a canonical instruction")
     args = parser.parse_args()
@@ -239,4 +278,4 @@ if __name__ == "__main__":
         if (first[1:] not in pairs or op not in ("AND","OR","NOT") or
                 (op == "NOT") != (a == b) or args.fixed):
             parser.error("choose a canonical first gate for the selected raw-input problem")
-    synthesize(args.solver, args.fixed, args.gates, args.seconds, args.check, first_input_one=args.first_input_one, first_gate=first)
+    synthesize(args.solver, args.fixed, args.gates, args.seconds, args.check, first_input_one=args.first_input_one, first_gate=first, cofactor_bounds=args.cofactor_bounds)

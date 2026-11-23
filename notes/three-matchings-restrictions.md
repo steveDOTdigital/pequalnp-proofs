@@ -31,3 +31,18 @@ python3 -B notes/matching-small-cones.py --solver cadical --seconds 120
 ```
 
 The SAT encoding permits arbitrary later uses of all available wires. For each output it tests whether flipping a raw bit can change that output with all supplied prefix signals fixed. Such a bit must occur in the suffix itself, which gives redundant reachability and gate-count constraints. A smaller satisfying circuit can be padded with output copies, and independent gates can be ordered by larger operand then smaller operand. The first raw gate is reduced only by symmetries preserving the problem. A SAT result is independently tested as a circuit on the full truth table. A timeout gives no exclusion. These are externally reproducible solver results; the unrestricted 14-gate question remains open.
+
+### Smaller restrictions used for further pruning
+
+After x₀ = 1, pinning either remaining x to zero or one gives lower bounds of six or seven gates respectively. Pinning any y to zero or one gives lower bounds of seven or six. The four exact searches at budgets 5, 6, 6 and 5 respectively return UNSAT. Constant or raw outputs are omitted in these subproblems; this preserves a lower bound. Here is a reproduction for the four symmetry representatives:
+
+```sh
+python3 -B - <<'PY'
+from runpy import run_path
+search = run_path("notes/search-three-matchings.py")["synthesize"]
+for i, value, limit in [(1,0,5), (1,1,6), (3,0,6), (3,1,5)]:
+    search("cadical", 0, limit, 30, True, pins={0: 1, i: value})
+PY
+```
+
+The optional `--cofactor-bounds` flag uses these lower bounds on the five-input problem. On the unrestricted six-input problem it uses the eleven-gate lower bound after fixing any input true. Under a restriction, the circuit may reuse any earlier identical truth table and may propagate constants. Hence at least the known lower bound in distinct new nonconstant wire functions must survive. A direct twelve-gate implementation passes all ten five-input inequalities. The strengthened searches at eleven gates for the five-input problem and thirteen for the full problem both timed out. Separately splitting the former search by the first gate excluded NOT of a y bit and both AND and OR of two different y bits; the five other classes timed out.
