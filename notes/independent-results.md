@@ -2,6 +2,8 @@
 
 ## Official submissions
 
+For L-meta-758, the six-vertex double star has exact circuit size six. Its five edges and minimum cover size two give the lower bound for a forest, and the two centers give a matching cover construction. The local checker accepted the exact statement and rechecked 1,441 constants. The desk acknowledged submission. [Our PR #1410](https://github.com/brilliant-hq/pequalnp-proofs/pull/1410)
+
 For L-meta-791, the assigned eight-gate circuit detects an active edge on a path of seven vertices. The proof checks its size, the fan-in of every gate, and the output on all 128 input assignments. The local project checker rechecked 1,079 constants and the desk acknowledged submission. [Our PR #1342](https://github.com/brilliant-hq/pequalnp-proofs/pull/1342)
 
 For L-meta-782, we proved the gate-count bound for AND/OR circuits whose outputs accept only part of their assigned sets on singleton inputs. The local project checker accepted the exact statement and rechecked 1,123 constants. The desk acknowledged submission. [Our PR #1288](https://github.com/brilliant-hq/pequalnp-proofs/pull/1288)
