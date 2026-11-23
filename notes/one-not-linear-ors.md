@@ -1,6 +1,6 @@
 # One NOT gate and ORs of linear set families
 
-L-meta-955 asks for a binary AND/OR circuit with at most one NOT that computes all the disjunctions of a family of sets using fewer than `Σ(|S|−1)` gates. Every set must have at least two points and two different sets can share at most one point. The following argument and [exhaustive search](check-one-not-linear-ors.py) exclude every instance on at most six inputs. The family of arbitrary monotone outputs in [the six-input counterexample](six-input-negation.md) includes conjunctions and therefore solves a different problem.
+L-meta-955 asks for a binary AND/OR circuit with at most one NOT that computes all the disjunctions of a family of sets using fewer than `Σ(|S|−1)` gates. Every set must have at least two points and two different sets can share at most one point. The following argument and [exhaustive search](check-one-not-linear-ors.py) exclude every instance on at most seven inputs. The family of arbitrary monotone outputs in [the six-input counterexample](six-input-negation.md) includes conjunctions and therefore solves a different problem.
 
 ## A counting argument for one NOT
 
@@ -23,4 +23,24 @@ Give the circuit the raw inputs, both constants and every compatible two-point d
 | 3 | 6 | 1, 97, 6,013 | No |
 | 4 | 3 | 1, 66, 2,928, 111,127 | No |
 
-For a positive control, private two-input OR prefixes supply all the required targets using exactly the ordinary budget. On seven inputs, thirteen core types remain after the counting argument. The search also excludes all three types with exactly three triples and no larger set. Run `python3.11 notes/check-one-not-linear-ors.py` on the research branch to reproduce the list and these exclusions. These are computational exclusions. The unrestricted assignment remains open.
+For a positive control, private two-input OR prefixes supply all the required targets using exactly the ordinary budget. Run `python3.11 notes/check-one-not-linear-ors.py` on the research branch to reproduce the counts.
+
+## A distinct predecessor for each large output
+
+Let t be the number of targets with at least three points. Take the first gate that computes each target. Its value is distinct from the other target values and from every raw input. With exactly one NOT gate, none of these target gates is a NOT: the operand of the unique NOT is monotone, so its complement cannot be a nonconstant monotone disjunction.
+
+Each target S of size at least three also needs a separate earlier gate, as follows.
+
+- If the final gate is OR, both parents are pointwise bounded above by the disjunction on S. One parent must be true on two or more singletons of S to cover its at least three singleton inputs. This parent differs from every raw input. It cannot qualify for another OR target because two targets share at most one point.
+- If the final gate is AND, both parents are pointwise at least the disjunction on S. On the input that turns on exactly the points outside S the target is false, so choose a parent that is false there. It cannot qualify for another AND target T: this same input turns on a point of T. It cannot be a raw input because it is true on each of at least three different singletons.
+- An OR predecessor for S cannot be an AND predecessor for another target T. It is false on a singleton of T outside S, where an AND predecessor for T must be true.
+
+None of these selected parents equals another required output, including a two-point output. For an OR predecessor, two of its true singleton points would have to belong to both sets. For an AND predecessor, the other set would have to contain S. The choice of the first occurrence of S rules out the parent being S itself. Empty or unary final gates cannot be the first occurrence of one of these targets. A nonconstant NOT of a monotone function is true at the all-zero input and false at the all-one input, so it cannot be any selected parent. Constant NOT outputs cannot qualify either.
+
+Counting the m target gates, the t different additional parents, and the NOT gives a lower bound of `m+t+1`. In particular, a single NOT cannot save a gate for any linear family of pairs and triples on any number of inputs. This bound also covers one four-point target alongside any number of pairs and triples.
+
+## Seven inputs
+
+There are thirteen core types on seven inputs after the largest-output bound. The predecessor bound covers twelve. The remaining type has two four-point sets meeting in one point. All nine compatible two-point disjunctions were supplied for free. A strict saving would leave at most three additional gates beyond the mandatory outputs. The search found no witness, with 1 initial state, 166 one-gate states, 16,947 two-gate states and 3,431,667 terminal visits. Terminal visits in this larger run include repeated states to bound memory. Together the counting argument and the exhaustive check exclude every system on at most seven inputs. Both also allow arbitrary subsets of the compatible pair outputs.
+
+The unrestricted assignment remains open.

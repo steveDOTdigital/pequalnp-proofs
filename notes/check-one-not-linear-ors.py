@@ -1,7 +1,6 @@
 """Check small linear families of OR outputs in the one-NOT, binary fan-in model."""
 
 from collections import Counter
-from functools import lru_cache
 from itertools import combinations, permutations
 
 
@@ -84,13 +83,22 @@ def check_core(n, core):
     assert len(control) == exact and targets <= closure(free | control)
     levels = Counter()
 
-    @lru_cache(maxsize=None)
+    # The larger double-four case stores only interior states. Its terminal
+    # count includes repeated visits; the truth-table test is identical.
+    dead = set()
+    remember_leaves = not (n == 7 and all(s.bit_count() == 4 for s in core))
+
     def search(extra, used_not):
+        key = (extra, used_not)
+        if key in dead:
+            return False
         levels[len(extra)] += 1
         wires = closure(free | extra)
         if targets <= wires:
             return True
         if len(extra) == exact - 1:
+            if remember_leaves:
+                dead.add(key)
             return False
         candidates = {result for a, b in combinations(wires, 2) for result in (a & b, a | b)}
         for result in sorted(candidates - wires - targets):
@@ -101,10 +109,11 @@ def check_core(n, core):
                 result = full ^ a
                 if result not in wires and result not in targets and search(extra | {result}, True):
                     return True
+        dead.add(key)
         return False
 
     found = search(frozenset(), False)
-    search.cache_clear()
+    dead.clear()
     return found, sorted(levels.items())
 
 
@@ -113,10 +122,12 @@ if __name__ == "__main__":
         cores = large_set_cores(n)
         print(f"{n} inputs: {len(cores)} remaining core types", flush=True)
         for core, multiplicity in cores:
-            # The full seven-input list is reported; the three-triple cases
-            # and every six-input case are small enough for this enumeration.
+            # Keep the earlier small exhaustive checks as cross-checks. The
+            # private-parent proof also handles these triple-only cases.
             if n == 7 and sum(s.bit_count() - 2 for s in core) != 3:
-                print("  pending", core, multiplicity, flush=True)
-                continue
+                if sum(s.bit_count() - 3 for s in core) <= 1:
+                    print("  private-parent bound", core, multiplicity, flush=True)
+                    continue
+                assert sorted(s.bit_count() for s in core) == [4, 4]
             found, levels = check_core(n, core)
             print("  checked", core, multiplicity, "witness", found, "states", levels, flush=True)
