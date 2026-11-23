@@ -1,6 +1,10 @@
 """Classify the outside-signal truth tables of seven endpoint-dependent gates."""
 
-from itertools import combinations, permutations
+import argparse
+import subprocess
+from itertools import combinations, combinations_with_replacement, permutations
+from pathlib import Path
+from runpy import run_path
 
 
 ROWS = {0, 10, 12, 14, 15}
@@ -39,7 +43,31 @@ def trees(leaves, full, one_not=False):
     return (negated if one_not else normal)[(1 << len(leaves)) - 1]
 
 
-def classify(count, kind, require_both=False):
+def prune_with_formulas(patterns, count):
+    """Remove tables implemented on every valid row by a six-gate formula."""
+    contexts = 1 << count
+    full = (1 << (4 * contexts)) - 1
+    leaves = [12 * (full // 15), 10 * (full // 15)]
+    leaves.extend(sum(15 << (4*i) for i in range(contexts) if i & (1 << j))
+                  for j in range(count))
+    remaining = patterns.copy()
+    # Six binary gates allow seven leaf occurrences. All outside wires keep
+    # their actual phases, and the replacement does not use the first OR.
+    for repeats in range(8 - len(leaves)):
+        for extra in combinations_with_replacement(leaves, repeats):
+            by_mask = {}
+            for p in remaining:
+                mask = sum(15 << (4*i) for i, r in enumerate(p) if r != INVALID)
+                bits = sum(r << (4*i) for i, r in enumerate(p) if r != INVALID)
+                by_mask.setdefault(mask, {})[bits] = p
+            outputs = trees(leaves + list(extra), full)
+            for mask, wanted in by_mask.items():
+                hits = {bits & mask for bits in outputs} & wanted.keys()
+                remaining.difference_update(wanted[bits] for bits in hits)
+    return remaining
+
+
+def classify(count, kind, require_both=False, shorten=False, signed=True):
     contexts = 1 << count
     width = 4 * contexts
     half = (1 << width) - 1
@@ -80,6 +108,9 @@ def classify(count, kind, require_both=False):
     else:
         collect(trees(leaves, full, one_not=kind == "not"))
 
+    if shorten:
+        patterns = prune_with_formulas(patterns, count)
+
     # Quotient by permutations and complements of signal coordinates and by
     # swapping the two endpoints. Complements here relabel signals only.
     unclassified = patterns.copy()
@@ -90,14 +121,30 @@ def classify(count, kind, require_both=False):
         for perm in permutations(range(count)):
             permuted = [sum(((i >> j) & 1) << perm[j] for j in range(count))
                         for i in range(contexts)]
-            for flip in range(contexts):
+            for flip in range(contexts if signed else 1):
                 image = tuple(row[i ^ flip] for i in permuted)
                 unclassified.discard(image)
                 unclassified.discard(tuple({10: 12, 12: 10}.get(r, r) for r in image))
     return len(patterns), representatives
 
 
+def exclude_six(row, count, solver):
+    encode = run_path(str(Path(__file__).with_name("search-petersen-first-or.py")))["truth_instance"]
+    n = count + 2
+    rows = [x for x in range(1 << n) if row[x // 4] != INVALID]
+    inputs = [sum(((x >> j) & 1) << x for x in range(1 << n)) for j in range(n)]
+    target = sum(bits << (4*i) for i, bits in enumerate(row) if bits != INVALID)
+    formula, _ = encode(rows, inputs, 6, target)
+    result = subprocess.run([solver, "-q", "--check", "--checkproof=2", "-t", "60"],
+                            input=formula.dimacs(), text=True, capture_output=True, timeout=80)
+    if result.returncode != 20 or "s UNSATISFIABLE" not in result.stdout:
+        raise RuntimeError(("six-gate exclusion inconclusive", result.returncode, row))
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--solver", help="also prove sharpness for all rows in each remaining table")
+    args = parser.parse_args()
     for count, kind, expected in [(3, "not", (36, 2)), (3, "fanout", (102, 10)),
                                   (4, "tree", (864, 22))]:
         total, reps = classify(count, kind)
@@ -106,5 +153,11 @@ if __name__ == "__main__":
         strong_total, strong = classify(count, kind, require_both=True)
         assert (strong_total, len(strong)) == ((0, 0) if kind == "not" else expected)
         print("Requiring sensitivity to both constant replacements:", len(strong), "classes")
-        for r in reps:
+        survivors, final = classify(count, kind, require_both=True, shorten=True, signed=False)
+        assert (survivors, len(final)) == {"not": (0, 0), "fanout": (18, 2),
+                                           "tree": (336, 9)}[kind]
+        print("After six-gate replacements:", survivors, "tables in", len(final), "classes")
+        for r in final:
             print(" ".join(str(x) if x != INVALID else "-" for x in r))
+            if args.solver:
+                exclude_six(r, count, args.solver)

@@ -25,16 +25,21 @@ def boundary():
 
 
 def instance(rows, budget):
+    inputs = PETERSEN["INPUTS"]
+    return truth_instance(rows, inputs + [inputs[0] | inputs[2]], budget - 1, TARGET)
+
+
+def truth_instance(rows, input_tables, gate_count, target):
+    """Synthesize one output on the specified assignment rows, with arbitrary fanout."""
     f = Formula()
     tables = []
-    for j in range(11):
+    for bits in input_tables:
         table = f.vars(len(rows))
         for v, x in zip(table, rows):
-            bit = (x >> j) & 1 if j < 10 else bool(x & 5)
-            f.clauses.append([v if bit else -v])
+            f.clauses.append([v if (bits >> x) & 1 else -v])
         tables.append(table)
     choices = []
-    for _ in range(budget - 1):
+    for _ in range(gate_count):
         ops = f.one_of(3)
         left, right = (f.one_of(len(tables)) for _ in range(2))
         for i, a in enumerate(left):
@@ -64,7 +69,7 @@ def instance(rows, budget):
         tables.append(out)
         choices.append((ops, left, right))
     for y, x in zip(tables[-1], rows):
-        f.clauses.append([y if TARGET & (1 << x) else -y])
+        f.clauses.append([y if target & (1 << x) else -y])
     return f, choices
 
 

@@ -58,6 +58,24 @@ For *any* outside setting, constant propagation in this same tree can therefore 
 
 In the seven-gate case with one NOT, the suffix is a read-once tree. Its sole NOT must lie on a path from at least one of u,v,q because only endpoint-dependent gates were counted. It cannot negate either endpoint leaf. It must therefore negate q, which the preceding argument excludes.
 
+### Shorter replacement formulas leave eleven tables
+
+For each remaining table, search for a formula on u,v and the same outside signals that computes its specified answers directly. A binary formula with at most seven leaf occurrences uses at most six gates overall. It can replace all seven endpoint-dependent gates, leaving the outside wires and their phases unchanged. An unspecified row is unreachable in a circuit for the graph, so a replacement may take either value at its four entries.
+
+Enumerating formulas that use every available source at least once and repeat raw leaves up to the seven-leaf limit is already enough to eliminate 84 of the 102 three-signal tables and 528 of the 864 four-signal tables. The remaining 18 and 336 tables have respectively **two and nine representatives under ordinary permutations** of outside signals and exchange of endpoints. No free complements are needed for this reduction.
+
+For each of these eleven representatives, exact synthesis rules out **every** circuit of at most six gates that computes all its specified rows on the same source signals, including circuits with NOT, arbitrary sharing or unused sources. The SAT query fixes the required output at every legal row, leaves other rows free, allows repeated gate operands, and pads a smaller solution by copying its output. The original seven-gate topology attains the table on those rows. Thus the eleven representatives have exact local cost seven. A particular exterior circuit may reach only part of the legal table; its cost and reachable contexts still matter for the full Petersen question. The [enumerator and exact checks](check-petersen-seven-gates.py) print all eleven representatives and verify the lower bounds when passed `--solver` with a CaDiCaL executable.
+
+The two three-signal cases have a common explicit form. Call the outside wires a,b,c, and write U = K OR A and V = K OR B for the graph's outputs when just u or just v is on. Up to exchanging the endpoints and naming the three wires, both cases require
+
+    U = b OR c,     V = a OR c.
+
+The first case requires K = b AND c; the second requires K = b AND a. Conversely these identities suffice. Put t = c or t = a respectively. The seven gates compute q, then
+
+    (b AND (u OR t)) OR ((v AND a) OR (q AND c)).
+
+Expanding gives K OR (u AND U) OR (v AND V), the required function. Thus the entire three-signal subcase reduces to finding a circuit of at most twelve gates for one of two precisely specified factorizations on the eight outside inputs.
+
 ## Charging for the outside signals
 
 Any circuit computing the four displayed outside signals simultaneously needs at least **thirteen outside gates**, allowing arbitrary AND, OR and NOT gates and unrestricted sharing. In particular these seven endpoint-dependent gates with those four supplied wires cannot give a nineteen-gate circuit.
