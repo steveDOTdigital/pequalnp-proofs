@@ -156,7 +156,20 @@ if __name__ == "__main__":
     parser.add_argument("--max-vertices", type=int, choices=range(2, 8), default=6)
     parser.add_argument("--seconds", type=int, default=15)
     parser.add_argument("--bowtie", action="store_true", help="test the weighted bound in L-meta-700")
+    parser.add_argument("--prism", action="store_true", help="test the full nine-gate prism search in L-meta-741")
+    parser.add_argument("--first", nargs=3, metavar=("OP", "A", "B"),
+                        help="limit the prism search to a canonical first gate")
     options = parser.parse_args()
+    if options.prism:
+        prism = [(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3), (1, 4), (2, 5)]
+        cut = None
+        if options.first:
+            op, a, b = options.first
+            cut = (op, int(a), int(b))
+            if op not in ("AND", "OR") or cut[1:] not in ((0, 1), (0, 3), (1, 3)):
+                parser.error("the prism has three canonical pairs: (0,1), (0,3), (1,3)")
+        print(search(6, prism, options.solver, options.seconds, budget=9, first_gate=cut), flush=True)
+        raise SystemExit(0)
     if options.bowtie:
         bowtie = [(0, 1), (0, 2), (1, 2), (0, 3), (0, 4), (3, 4)]
         for k in range(1, 10):
