@@ -46,6 +46,18 @@ The [complete enumeration](check-petersen-seven-gates.py) reduces these tables t
 
 The enumeration requires all five rows to occur, and requires at least one setting with a target row where replacing q by true changes an answer. The program prints every representative. The two three-signal lists are disjoint after reduction. Equivalence permutes the outside signals, optionally complements their coordinates, and exchanges u and v. A search using one representative must allow both phases of the outside outputs or account for the cost of producing their complements. These tables constrain the subcase with seven counted gates; a bound on the number of exterior gates still has to charge for the signals supplying each table.
 
+### The sole NOT disappears from the minimum-circuit case
+
+In a minimum circuit, replacing q by **either** constant must change an answer. This rules out both classes in the one-NOT row. Thus only **32 classes** remain for a minimum circuit with seven counted gates, and all seven gates are binary ANDs or ORs. NOT gates may still occur in the outside computation. The enumeration checks both constant replacements independently. There is also a direct proof.
+
+More generally, suppose the suffix is a formula in which each of u,v,q occurs only once. Move negations to the leaves by De Morgan's laws. Both endpoint leaves have positive sign: with v fixed true, q is fixed true, and the required projection u increases strictly with u. The symmetric test applies to v. If the q leaf has negative sign, write w = NOT q and regard the formula H(u,v,w) as increasing in all three leaves after fixing the outside inputs.
+
+If replacing q by true ever changes an answer, the change must occur at u = v = 0, the only setting with q false. At those fixed outside inputs, H(0,0,1) = 1 and H(0,0,0) = 0. The original target is monotone in the endpoints and true at (0,0), so it is also true at (1,0) and (0,1). Thus H(1,0,0) = H(0,1,0) = 1. Monotonicity now forces H to equal the three-way OR for this outside setting. Consequently the least common ancestor of every pair of these three leaves in the formula must be an OR: pinning the third leaf to zero still gives the OR of the pair, and a binary least common ancestor has its fixed operation when both children remain essential.
+
+For *any* outside setting, constant propagation in this same tree can therefore leave only a constant or a disjunction of a subset of u,v,w. Each remaining branching gate is the least common ancestor of two surviving leaves. If w survives, the original target is true at (0,0) and hence identically true for these outside inputs. Replacing q by false makes w true and preserves that answer. If w does not survive, the replacement has no effect. Therefore a negative q leaf always admits a constant replacement.
+
+In the seven-gate case with one NOT, the suffix is a read-once tree. Its sole NOT must lie on a path from at least one of u,v,q because only endpoint-dependent gates were counted. It cannot negate either endpoint leaf. It must therefore negate q, which the preceding argument excludes.
+
 ## Charging for the outside signals
 
 Any circuit computing the four displayed outside signals simultaneously needs at least **thirteen outside gates**, allowing arbitrary AND, OR and NOT gates and unrestricted sharing. In particular these seven endpoint-dependent gates with those four supplied wires cannot give a nineteen-gate circuit.

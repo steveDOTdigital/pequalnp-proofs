@@ -39,14 +39,14 @@ def trees(leaves, full, one_not=False):
     return (negated if one_not else normal)[(1 << len(leaves)) - 1]
 
 
-def classify(count, kind):
+def classify(count, kind, require_both=False):
     contexts = 1 << count
     width = 4 * contexts
     half = (1 << width) - 1
-    full = (1 << (2 * width)) - 1
+    full = (1 << (3 * width)) - 1
 
     def same(bits):
-        return bits | (bits << width)
+        return bits | (bits << width) | (bits << (2 * width))
 
     unit = half // 15
     leaves = [same(12 * unit), same(10 * unit), 14 * unit | (half << width)]
@@ -56,12 +56,17 @@ def classify(count, kind):
 
     def collect(tables):
         for t in tables:
-            actual, forced = t & half, t >> width
+            actual, forced = t & half, (t >> width) & half
             if actual == forced:
                 continue
             rows = tuple((actual >> (4*i)) & 15 for i in range(contexts))
             if not ROWS.issubset(rows):
                 continue
+            if require_both:
+                zero = t >> (2 * width)
+                if all(r not in ROWS or r == ((zero >> (4*i)) & 15)
+                       for i, r in enumerate(rows)):
+                    continue
             if any(r in ROWS and r != ((forced >> (4*i)) & 15) for i, r in enumerate(rows)):
                 patterns.add(tuple(r if r in ROWS else INVALID for r in rows))
 
@@ -98,5 +103,8 @@ if __name__ == "__main__":
         total, reps = classify(count, kind)
         assert (total, len(reps)) == expected
         print(kind, total, "tables in", len(reps), "classes")
+        strong_total, strong = classify(count, kind, require_both=True)
+        assert (strong_total, len(strong)) == ((0, 0) if kind == "not" else expected)
+        print("Requiring sensitivity to both constant replacements:", len(strong), "classes")
         for r in reps:
             print(" ".join(str(x) if x != INVALID else "-" for x in r))
