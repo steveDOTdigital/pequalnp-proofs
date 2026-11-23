@@ -485,8 +485,8 @@ def realizable : Nat → Finset Nat → Prop
   | 0, F => fitsRows F
   | k+1, F => ∃ w < 1024, ∃ output : Bool, realizable k (expand F k w output)
 
-theorem circuit_realizable (C : AndCountCircuit 9) (bound : C.size ≤ 5) (ok : correct C) :
-    realizable 5 {0} := by
+theorem circuit_realizable_at (C : AndCountCircuit 9) (bound : C.size ≤ 5) (ok : correct C)
+    (count : Nat) (above : C.size ≤ count) : realizable count {0} := by
   have build (k : Nat) (F : Finset Nat)
       (includes : ∀ c : Fin 32, sideMask (suffix C (choice C c) k) ∈ F) : realizable k F := by
     induction k generalizing F with
@@ -538,12 +538,137 @@ theorem circuit_realizable (C : AndCountCircuit 9) (bound : C.size ≤ 5) (ok : 
         exact Finset.mem_biUnion.mpr ⟨0,zero,by simp⟩
   apply build
   intro c
-  have empty : suffix C (choice C c) 5 = ∅ := by
+  have empty : suffix C (choice C c) count = ∅ := by
     apply Finset.eq_empty_iff_forall_notMem.mpr
     intro s hs
     have five := (Finset.mem_filter.mp hs).2
     have small := s.1.isLt
     omega
   simp [empty, mask_empty]
+
+theorem circuit_realizable (C : AndCountCircuit 9) (bound : C.size ≤ 5) (ok : correct C) :
+    realizable 5 {0} := circuit_realizable_at C bound ok 5 bound
+
+def rowValue (f : Fin 9 → Nat) (r : Nat) := packBits 9 fun i =>
+  if hi : i < 9 then decide (r &&& f ⟨i,hi⟩ = 0) else false
+
+theorem negative_bound : ∀ m ∈ negatives, m < 512 := by
+  have all : negatives.all (fun m => decide (m < 512)) = true := by decide +kernel
+  intro m hm; exact of_decide_eq_true (List.all_eq_true.mp all _ hm)
+
+theorem rowValue_eq (f : Fin 9 → Nat) (m r : Nat) (bound : m < 512)
+    (e : ∀ v : Fin 9, m.testBit v.val = true ↔ r &&& f v = 0) : rowValue f r = m := by
+  apply Nat.eq_of_testBit_eq
+  intro j
+  by_cases h : j < 9
+  · have eq := e ⟨j,h⟩
+    cases b : m.testBit j <;> simp_all [rowValue, pack_test]
+  · have large : 2^9 ≤ 2^j := Nat.pow_le_pow_right (by decide) (by omega)
+    simp [rowValue, pack_test, h, Nat.testBit_eq_false_of_lt (lt_of_lt_of_le bound large)]
+
+theorem required_card (F : Finset Nat) (ok : fitsRows F) : 16 ≤ F.card := by
+  obtain ⟨f,_,all⟩ := ok
+  have sub : negatives.toFinset ⊆ F.image (rowValue f) := by
+    intro m hm
+    have mem := List.mem_toFinset.mp hm
+    obtain ⟨r,hr,e⟩ := all m mem
+    exact Finset.mem_image.mpr ⟨r,hr,rowValue_eq f m r (negative_bound m mem) e⟩
+  have sz : negatives.toFinset.card = 16 := by decide +kernel
+  exact sz ▸ (Finset.card_le_card sub).trans Finset.card_image_le
+
+theorem expand_card (F : Finset Nat) (k w : Nat) (out : Bool) :
+    (expand F k w out).card ≤ 2 * F.card := by
+  unfold expand
+  apply Finset.card_biUnion_le.trans
+  calc
+    _ ≤ ∑ _r ∈ F, 2 := by
+      apply Finset.sum_le_sum
+      intro r hr
+      split
+      · exact (Finset.card_insert_le _ _).trans (by simp)
+      · simp
+    _ = _ := by simp [Nat.mul_comm]
+
+theorem capacity (k : Nat) (F : Finset Nat) (ok : realizable k F) : 16 ≤ 2^k * F.card := by
+  induction k generalizing F with
+  | zero => simpa using required_card F ok
+  | succ k ih =>
+    obtain ⟨w,_,out,next⟩ := ok
+    calc
+      16 ≤ 2^k * (expand F k w out).card := ih _ next
+      _ ≤ 2^k * (2 * F.card) := Nat.mul_le_mul_left _ (expand_card F k w out)
+      _ = _ := by rw [pow_succ, Nat.mul_assoc]
+
+theorem forced_expansion (k : Nat) (F : Finset Nat) (full : 2^(k+1) * F.card = 16)
+    (ok : realizable (k+1) F) : realizable k (expand F k 0 true) := by
+  obtain ⟨w,_,out,next⟩ := ok
+  have cap := capacity k _ next
+  have maxed : 2 * F.card ≤ (expand F k w out).card := by
+    rw [← full, pow_succ, Nat.mul_assoc] at cap
+    exact Nat.le_of_mul_le_mul_left cap (by positivity)
+  have every (r : Nat) (hr : r ∈ F) : (out || decide (r &&& w ≠ 0)) = true := by
+    by_contra miss
+    have bounds : expand F k w out ⊆ insert r (expand (F.erase r) k w out) := by
+      intro x hx
+      obtain ⟨s,hs,hx⟩ := Finset.mem_biUnion.mp hx
+      by_cases eq : s = r
+      · subst s
+        have same : x = r := by simpa only [ite_eq_right miss, Finset.mem_singleton] using hx
+        exact Finset.mem_insert.mpr (Or.inl same)
+      · exact Finset.mem_insert_of_mem (Finset.mem_biUnion.mpr ⟨s,Finset.mem_erase.mpr ⟨eq,hs⟩,hx⟩)
+    have one := (Finset.card_le_card bounds).trans (Finset.card_insert_le _ _)
+    have two := expand_card (F.erase r) k w out
+    have rm := Finset.card_erase_add_one hr
+    omega
+  have same : expand F k 0 true = expand F k w out := by
+    unfold expand
+    apply Finset.biUnion_congr rfl
+    intro r hr
+    simp only [every r hr, Bool.true_or]
+  rwa [same]
+
+def targetGroup (v : Fin 9) (b : Bool) := negatives.toFinset.filter fun m => m.testBit v.val = b
+
+def cornerGroup (F : Finset Nat) (w : Nat) (b : Bool) := F.filter fun r => decide (r &&& w = 0) = b
+
+theorem group_bound (F : Finset Nat) (f : Fin 9 → Nat)
+    (all : ∀ m ∈ negatives, ∃ r ∈ F, ∀ v : Fin 9, m.testBit v.val = true ↔ r &&& f v = 0)
+    (v : Fin 9) (b : Bool) : (targetGroup v b).card ≤ (cornerGroup F (f v) b).card := by
+  have sub : targetGroup v b ⊆ (cornerGroup F (f v) b).image (rowValue f) := by
+    intro m hm
+    obtain ⟨inList,bit⟩ := Finset.mem_filter.mp hm
+    have mem := List.mem_toFinset.mp inList
+    obtain ⟨r,hr,e⟩ := all m mem
+    refine Finset.mem_image.mpr ⟨r, Finset.mem_filter.mpr ⟨hr,?_⟩, rowValue_eq f m r (negative_bound m mem) e⟩
+    have atV := e v
+    cases b <;> simp_all
+  exact (Finset.card_le_card sub).trans Finset.card_image_le
+
+def first : Finset Nat := expand {0} 3 0 true
+def second := expand first 2 0 true
+def third := expand second 1 0 true
+def fourth := expand third 0 0 true
+
+theorem four_impossible : ¬ realizable 4 {0} := by
+  intro ok
+  have a : realizable 3 first := forced_expansion 3 {0} (by decide +kernel) ok
+  have b : realizable 2 second := forced_expansion 2 first (by decide +kernel) a
+  have c : realizable 1 third := forced_expansion 1 second (by decide +kernel) b
+  have d : fitsRows fourth := forced_expansion 0 third (by decide +kernel) c
+  obtain ⟨f,bounded,all⟩ := d
+  have need := group_bound fourth f all 1 true
+  have other := group_bound fourth f all 1 false
+  have yesCount : (targetGroup 1 true).card = 5 := by decide +kernel
+  have noCount : (targetGroup 1 false).card = 11 := by decide +kernel
+  rw [yesCount] at need
+  rw [noCount] at other
+  have test : (List.range 1024).all (fun w =>
+      decide (¬ (5 ≤ (cornerGroup fourth w true).card ∧ 11 ≤ (cornerGroup fourth w false).card))) = true := by
+    decide +kernel
+  exact (of_decide_eq_true (List.all_eq_true.mp test (f 1) (List.mem_range.mpr (bounded 1)))) ⟨need,other⟩
+
+theorem five_necessary (C : AndCountCircuit 9) (ok : correct C) : 5 ≤ C.size := by
+  by_contra low
+  exact four_impossible (circuit_realizable_at C (by omega) ok 4 (by omega))
 
 end PEqualNP.Outside.L_meta_908_aux
