@@ -134,13 +134,13 @@ def analyze(height, width, size, target):
 
 
 if __name__ == "__main__":
-    for height, target in [(4, 7), (5, 8)]:
+    for height, target, start in [(4, 7, 13), (5, 8, 14), (5, 9, 17)]:
         # Adding allowed positions preserves any subspace supported there.
         # Once k entries are ruled out, all smaller supports are ruled out.
-        for size in range(13 if height == 4 else 14, height * 5 + 1):
+        for size in range(start, height * 5 + 1):
             histogram, surviving = analyze(height, 5, size, target)
             maximum = max(histogram)
-            print(f"{height}x5, {size} entries: max dimension bound {maximum}; "
+            print(f"{height}x5, target {target}, {size} entries: max dimension bound {maximum}; "
                   f"{sum(histogram.values())} support orbits", flush=True)
             if maximum >= target:
                 print(f"Surviving row masks: {surviving}", flush=True)
