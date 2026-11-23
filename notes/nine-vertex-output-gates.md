@@ -31,3 +31,21 @@ For each internal count, the CNF chooses the wires of both sides, with the above
 | 4 | 1 | 3,075 | 12,184 | UNSAT |
 
 Run `python3.11 notes/check-nine-vertex-internal-gates.py /path/to/cadical 0 1 2 3 4 --seconds 180`. The program prints the SHA-256 of each deterministic DIMACS formula. Before each case it checks a fixed six-star realization with the same number of internal gates, each connected to a terminal. All five positive controls returned SAT. Each control includes extra gates when its internal count is positive.
+
+## Independent verification by reachable sides
+
+Choose a side at each AND gate and replace that gate by its chosen side. The output becomes an OR over the bare variables of the sides reachable from the output. This OR dominates the original circuit. At a fixed negative input I, choose a false side at every false gate. The resulting OR is false on I and, by domination, true at every one-vertex extension of I. Its variables are therefore exactly the complement of I. The 16 different maximal independent sets require 16 distinct reachable-side sets.
+
+The direct search first takes a candidate with as few internal gates as possible. At a terminal gate, any parent shared by its two sides can be promoted to the final OR by distributivity. Clear its outgoing wires as above. This reduces the internal count. A common bare input at a terminal is impossible since a maximal independent set contains that vertex. A never-reached internal gate can be dropped. An always-reached internal gate can be promoted as well. To see this, cut its inputs and set its signal to true. Every choice of sides above it still reaches that true signal. An output of false would permit a choice of false sides with a false linearized OR, a contradiction. Thus the original output is true whenever this gate is true. Promotion preserves the function.
+
+For each remaining topology, encode a reachable-side set by ten bits. A vertex can belong to any subset of the ten bare sides. Its candidate profile is the collection of corners whose reachable sides avoid that subset. Assign a profile to each of the nine vertices. After any partial assignment, group the 16 target rows and the available corners by their assigned membership bits. A group needs at least as many available corners as target rows. The search rejects a profile as soon as it violates that count. It prunes symmetric choices only under permutations which preserve the actual reachable-side family and fix all previously assigned profiles.
+
+| Internal gates | Distinct families searched | Search states | Matching families |
+| ---: | ---: | ---: | ---: |
+| 0 | 1 | 14 | 0 |
+| 1 | 4 | 1,074 | 0 |
+| 2 | 53 | 23,874 | 0 |
+| 3 | 503 | 44,930 | 0 |
+| 4 | 102 | 596 | 0 |
+
+Run `python3.11 notes/check-nine-vertex-corners.py`. This verification uses no SAT solver.
