@@ -51,7 +51,15 @@ There is a matching upper bound of one extra gate throughout the minimum-cover c
 
 ## Permanent and verification assignments
 
-For L-meta-904 shard 1, every one of the 8,388,608 orientations of the assigned 13-vertex graph A admits an independent set whose unabsorbed vertices are independent. The minimum witness size is three for 4,369,536 orientations and four for 4,019,072. The desk acknowledged exhaustion with the SHA-256 of the [bit-parallel search program](check-orientations-904-a.py). This enumerates one specified graph in the larger statement.
+For L-meta-904 the desk acknowledged exhaustive searches of all three specified graphs. Every orientation had an independent set whose unabsorbed vertices are independent. The minimum size was either three or four in each orientation. The search tests every independent candidate in order of size and evaluates 32,768 orientations per bitset. [Search all three graphs](check-orientations-904.py) · [Original shard 1 program](https://github.com/steveDOTdigital/pequalnp-proofs/blob/af5d777/notes/check-orientations-904-a.py)
+
+| Desk graph | Orientations | Minimum three | Minimum four |
+| --- | ---: | ---: | ---: |
+| G12, shard 0 | 2,097,152 | 2,091,632 | 5,520 |
+| A, shard 1 | 8,388,608 | 4,369,536 | 4,019,072 |
+| B, shard 2 | 16,777,216 | 15,877,240 | 899,976 |
+
+These three graphs cover 27,262,976 orientations. The statement for all four-cycle-free graphs on at most fifteen vertices remains open.
 
 For L-gct-086, the sharp maximum is 2n − 3 in every size n ≥ 3 if a row symmetry group fixes one row and is transitive on ordered pairs of distinct remaining rows. The proof uses Taylor coefficients through degree n − 1 and also applies to column symmetries. [One distinguished row](one-distinguished-row.md)
 
