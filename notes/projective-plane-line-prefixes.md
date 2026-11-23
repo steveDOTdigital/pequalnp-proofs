@@ -46,3 +46,16 @@ PY
 ```
 
 The two configurations exhaust the 286 triples of lines. Of these, 52 are concurrent (four triples at each of thirteen points) and 234 form triangles. In each case at least fourteen suffix gates survive the restrictions. Adding back the ten eliminated suffix gates and the forty star gates gives 64. Circuits with fewer than ten complete stars on each side remain candidates for the assignment.
+
+## Four Heawood stars and arbitrary plane order
+
+For L-meta-582, **four ordinary stars on the same side of the Heawood graph already force 27 gates** in a monotone circuit with arbitrary remaining gates and sharing. The construction using all seven line stars attains 27. Thus a 26-gate witness can have at most three ordinary line stars and at most three ordinary point stars. Here an ordinary star computes the OR of the three neighbors with two gates and then ANDs it with the center. Any of the three neighbor pairs may be combined first in each star.
+
+More generally, let a finite projective plane have order q ≥ 2, d = q + 1 points on each line and n = q² + q + 1 lines. Any monotone incidence circuit containing ordinary stars on n − 3 distinct lines has size at least **n(d + 1) − 1**. This equals the size of the circuit using all line stars. Point-line duality gives the other orientation.
+
+The restriction and switchable-pair arguments above are independent of the order. Here are the counts for all d. The completed stars use d(n − 3) distinct gates. Pinning their line inputs to zero removes at least n − 3 further gates as above. A circuit one gate under the claimed bound would leave at most 3d + 1 gates for the three remaining lines. Set points outside their union to one. The surviving helper disjunctions still have at most one point on each remaining line, so every raw input is required and every incidence at a shared point is switchable.
+
+- If the three lines are concurrent, their union has 3d − 2 points, hence there are 3d + 1 raw sources with the line bits. Two helpers exceed the budget by the connected-source count. One forces a read-once circuit, excluded by a switchable pair. With no helpers the incidence tree has 3d edges and a three-edge matching using private points. The forest lower bound gives 3d + 2 gates.
+- If the lines form a triangle, there are 3d raw sources. Three helpers exceed the budget and two force a read-once circuit. With one helper there is at most one excess use. The six-cycle of switchable pairs then forces the three line bits or the three intersection points to lie inside the repeated signal's source tree, with all three of the other kind outside. Setting all private points to zero gives the same two incompatible projections established above, since each helper contains at most one intersection point. With no helper, pin all 3(d − 2) private points to zero, saving at least one gate for each point. This leaves at most seven gates for the six-cycle, whose checked minimum is eight.
+
+For the posted Heawood labeling take line neighborhoods, in the order of vertices 7 through 13, to be {0,1,3}, {0,2,6}, {1,5,6}, {0,4,5}, {3,4,6}, {2,3,5}, {1,2,4}. Every pair meets once. Among the 35 triples left unfinished, seven are concurrent with seven points in the union and 28 form triangles with six points in the union. Substitution of n = 7 and d = 3 gives 27.
