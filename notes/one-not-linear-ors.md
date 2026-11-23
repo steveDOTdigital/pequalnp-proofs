@@ -1,6 +1,6 @@
 # One NOT gate and ORs of linear set families
 
-L-meta-955 asks for a binary AND/OR circuit with at most one NOT that computes all the disjunctions of a family of sets using fewer than `Σ(|S|−1)` gates. Every set must have at least two points and two different sets can share at most one point. The following argument and [exhaustive search](check-one-not-linear-ors.py) exclude every instance on at most eight inputs. The family of arbitrary monotone outputs in [the six-input counterexample](six-input-negation.md) includes conjunctions and therefore solves a different problem.
+L-meta-955 asks for a binary AND/OR circuit with at most one NOT that computes all the disjunctions of a family of sets using fewer than `Σ(|S|−1)` gates. Every set must have at least two points and two different sets can share at most one point. The following argument, [small-case search](check-one-not-linear-ors.py) and [nine-input SAT check](check-nine-input-linear-ors.py) exclude every instance on at most nine inputs. The family of arbitrary monotone outputs in [the six-input counterexample](six-input-negation.md) includes conjunctions and therefore solves a different problem.
 
 ## A counting argument for one NOT
 
@@ -60,5 +60,15 @@ Start with one component per raw input. For each wire, track the raw inputs with
 ## Eight inputs
 
 If the largest set has at least six points, at most two points lie outside it. Every other large set needs at least two outside points, so there can be at most one, of size three. The largest-output bound applies. If the largest set has five points, E≥3 requires another set of size at least four. It must have size four and meet the five-point set in one point. Together they cover all eight points. A third large set cannot meet each in at most one point, so the two-set connectivity bound applies. If all sizes are at most four, E≥3 requires three four-point sets. Their pairwise intersections have total size at most three, so their union has at least nine points. These cases exclude every witness on at most eight inputs.
+
+## Nine inputs
+
+A finite SAT check extends the exclusion to nine inputs. Generate the large sets in decreasing size, keeping one representative per relabelling of the nine ground points. Two families have the same input-column signatures up to row order exactly when they are isomorphic. Permuting only rows that have the same size and the same multiset of point degrees suffices. Every extension of a discarded representative has an isomorphic extension of the retained representative. After the largest-set and E≤2 bounds, the remaining 15 types account for 467,145 labelled families of large sets. The connectivity bound rules out seven types.
+
+Each of the eight remaining types has E=3. A strict saving can therefore use only the following gates after supplying every compatible pair disjunction for free: a first gate and distinct selected parent per large target, one NOT and at most one further binary gate. Supplying compatible pairs for free covers any choice of the original pair outputs, since their first gates were included in the original output count. An unused spare gate can be padded. The selected parent is distinct from the other parent of the target, because otherwise the target would have appeared earlier.
+
+The [reproducible encoding](check-nine-input-linear-ors.py) imposes a total order on these named gates and allows a gate to use any earlier wire, raw input, compatible pair or constant, subject to its role. It tests the all-zero and all-one inputs, each singleton and the input with exactly the points outside each large set on. At an OR target the selected parent must cover two singleton points. At an AND target it must be false with all outside points on. All gates must use the same operations and parents across all tested inputs. Any actual circuit with a strict saving gives a satisfying assignment. Unsatisfiability on this sample suffices to exclude a circuit on the full truth table.
+
+CaDiCaL returned UNSAT for all eight cases with internal proof checking enabled. As a positive control, allowing three further binary gates in place of one admits the ordinary separate constructions and an unused NOT. The same encoding returned SAT for all eight controls. Run `python3.11 notes/check-nine-input-linear-ors.py /path/to/cadical` to reproduce both checks. This is a computational lower bound. The desk assignment asks for an example on an unrestricted number of inputs.
 
 The unrestricted assignment remains open.
