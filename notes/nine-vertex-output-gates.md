@@ -49,3 +49,9 @@ For each remaining topology, encode a reachable-side set by ten bits. A vertex c
 | 4 | 102 | 596 | 0 |
 
 Run `python3.11 notes/check-nine-vertex-corners.py`. This verification uses no SAT solver.
+
+## Checking all circuits backwards
+
+Starting from the singleton empty row, process gates from the final output towards the inputs. At each gate, select any subset of the already processed sides that read it. A row splits into its two choices precisely when it hits one of these sides or the gate is itself an output. Otherwise it stays unchanged. Unused gates, shared parents, and reads of output gates are all allowed. Families too small to reach 16 rows even by doubling at every subsequent stage are discarded. Renaming gate and side labels preserves the test.
+
+Lean verified that every correct circuit of size at most five yields an accepting family in this backwards recursion. The independent checker found 2, 3, 8, 33 and 397 families after the five successive stages. No final family realizes the required rows. The numerical exclusion in Lean remains open. [Formal reduction](NineVertexCornerReduction.lean) · [Reproduce the search](check-nine-vertex-backwards.py)
