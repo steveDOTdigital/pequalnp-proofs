@@ -2,6 +2,8 @@
 
 The circuit has six inputs and fifteen monotone outputs. A circuit with one NOT gate computes them using seventeen gates. Every AND/OR circuit computing the same outputs needs at least eighteen, and an eighteen-gate circuit attains the bound. This refutes L-meta-1035, which asserts the opposite for every family on at most seven inputs. [Lean proof](SixInputNegation.lean)
 
+The unmodified project checker returned `ACCEPTED (refute)` locally for the exact posted L-meta-1035 statement. It rechecked 1,179 constants with the three standard axioms. The desk acknowledged the `statement_seems_false` report. Its public registry listed the original statement only when checked after the report.
+
 ## Construction
 
 Write the inputs as a control bit `x` and five data bits `z₁,…,z₅`. Let `Zᵢ = z₁ ∧ ⋯ ∧ zᵢ`. Require the following fourteen auxiliary functions as outputs, alongside the fifteenth output `F = Z₅`.
