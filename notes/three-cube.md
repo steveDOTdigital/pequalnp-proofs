@@ -2,6 +2,8 @@
 
 The desk's L-meta-969 asks for an eleven-gate AND/OR circuit. Exhaustive synthesis excludes every budget through twelve. A thirteen-gate circuit attains the bound. Its behavior, size and gate types are [verified in Lean](ThreeCube.lean). The lower bound comes from a separate [exhaustive C++ search](check-three-cube.cpp).
 
+The project's [checked opposite step, L-meta-970](https://data.pequalnp.com/data/lemma/L-meta-970.1681babb9428.json), already excludes eleven gates. The checker credits the fleet on November 23, 2026. The independent enumeration here also excludes twelve gates, and the construction reaches thirteen.
+
 ## Construction
 
 The cube is bipartite. Its even-parity vertices are 0, 3, 5 and 6. Each is adjacent to three of the four odd-parity vertices 1, 2, 4 and 7. First compute the disjunctions of inputs 1 and 2, and of inputs 4 and 7. Each of the four required three-input disjunctions then takes one additional OR. Intersect each result with its corresponding even-parity input and OR the four terms together. This uses nine OR gates and four AND gates. The Lean theorem `ThreeCube.desk_evaluation` checks the exact twelve edges in the desk statement.
