@@ -1,8 +1,10 @@
-# One nested AND on the plane quadrangle tests
+# A sharp 64-gate bound for products of up to three raw clauses
 
 The order-three projective plane has 13 points, 13 lines and 52 incidences. A positive input switches on just the point and line of one incidence. A negative input switches on the four points of a quadrangle and every line avoiding those four points. We consider monotone circuits with binary gates.
 
-**Claim.** Suppose the output is an OR of ordinary products of two raw-input disjunctions and one product of three raw-input disjunctions. All clause disjunctions may share arbitrary OR gates. This circuit needs at least 64 gates. If the three-clause product has its own inner AND and outer AND, the count is at least 65. If it accepts pairs on both arms of a genuine double star, the count is at least 66.
+**Result.** Every OR of products of two or three raw-input disjunctions needs at least 64 gates on these tests. Clause ORs and inner ANDs may both be shared. The ordinary 13-star construction attains 64. If the chosen centers of the surviving terms include both points and lines, at least 65 gates are needed. The last section proves the general sharing claim.
+
+**Single nested term.** Suppose the output is an OR of ordinary products of two raw-input disjunctions and one product of three raw-input disjunctions. All clause disjunctions may share arbitrary OR gates. This circuit needs at least 64 gates. If the three-clause product has its own inner AND and outer AND, the count is at least 65. If it accepts pairs on both arms of a genuine double star, the count is at least 66.
 
 Here a raw-input disjunction is an OR of some of the 26 inputs, including a single input. The OR combining product outputs is binary as well. A later AND that reads an OR of several earlier ANDs is outside this argument.
 
@@ -62,7 +64,7 @@ There is a second extension. Allow all star centers to be chosen independently o
 
 Fix a star center $c$. Form a graph on the raw inputs outside its incidence neighborhood, excluding $c$. Join $x$ and $y$ if no negative quadrangle activates $c,x,y$ together. This graph has no loops or four-cycles. The [finite check](quadrangle-conflicts.py) enumerates all 234 quadrangles, builds the graph at each of the 26 centers, and finds that any two distinct vertices have at most one common neighbor.
 
-Consider the one or two clauses missed by $c$ in a three-clause star. If there is only one, it contains only neighbors of $c$, since any other input can be active with $c$ on a negative row. If there are two, their sets of inputs outside the neighborhood are disjoint and every vertex of one is joined in this graph to every vertex of the other. Otherwise a negative row would satisfy all three clauses. Absence of a four-cycle implies that one of the sets has size at most one. Choose that clause as the terminal. It contains all the accepted neighbors and at most one raw input outside the center's neighborhood.
+Consider the one or two clauses missed by $c$ in a three-clause star. If there is only one, it contains only neighbors of $c$, since any other input can be active with $c$ on a negative row. If there are two, their sets of inputs outside the neighborhood are disjoint and every vertex of one is joined in this graph to every vertex of the other. Otherwise a negative row would satisfy all three clauses. Absence of a four-cycle implies that one of the sets has size at most one. Use a pure neighbor clause whenever available. Otherwise choose the clause with at most one extra input. For a star covering just one edge use its single neighbor input directly as the terminal for counting. This requires no gate. Every chosen terminal contains the accepted neighbors and at most one raw input outside the center's neighborhood.
 
 For each center, project its terminal cones as above. To count merges, choose a forest in which every source has one path forward to a charged terminal. One construction retains one outgoing edge at each nonterminal, keeps terminals as roots and prunes branches containing no raw source. Each binary branching gate in this forest merges two disjoint nonempty sets of source leaves. There are at least $|U_c|-k_c$ such gates.
 
@@ -72,7 +74,17 @@ In either forest a doubly charged gate branches over exactly two source leaves. 
 
 The preprocessing count is therefore at least $52+d-(r+e+2k)-e$. The $r+2(e+k)$ ANDs and at least $r+e+k-1$ output ORs give at least $51+d+r+e+k$ gates. The $d$ distinct central edges have at most $2d$ endpoints, and $d\le k$, so the number of centers is at most $r+e+2d\le r+e+d+k$. The cover bounds of 13 and 14 give the claimed totals.
 
-These arguments leave open simultaneous sharing of inner ANDs across unrestricted impure stars on both sides, deeper products, and AND gates applied to disjunctions of earlier products.
+## Allowing all inner AND sharing as well
+
+Let $H$ be the set of distinct centers of three-clause stars with at least two accepted neighbors and no missed clause consisting entirely of neighbors. Write $h=|H|$. Only a terminal of such a star can be an ancestor of a doubly charged gate in its center's forest. At each center the *entire forest* has at most four source leaves, one for each incident neighbor. The disjoint leaf-pair argument therefore bounds the double charges by two per center in $H$, across all its terminals. Counting each doubly charged gate at its two centers, the total excess is at most $h$. With $s$ distinct inner ANDs, the gate count from the preceding sections becomes $51+d+r+e+s-h$.
+
+To compare this with the number of centers, take a star counted in $H$, with center $c$. Its center belongs to exactly one of the three clauses. Belonging to two would give a pure missed clause, and belonging to none would force an accepted neighbor to satisfy all three clauses alone. Moreover the clause containing $c$ is the singleton $c$. Indeed, any input belonging to that clause would form an accepted pair with each of two different accepted neighbors. Those two neighbors have only one common incidence neighbor, namely $c$. Singleton and same-side acceptance are forbidden. Denote the other clauses by $A,B$. Both contain at least two raw inputs, and their intersection is exactly the set of accepted neighbors of $c$, as is seen by activating $c$ and one other input.
+
+If two such stars share an inner AND, their centers coincide. When the inner AND has a singleton operand, that operand identifies the center. When both operands are nonsingletons, they must be $A,B$. Their intersection contains at least two neighbors and uniquely determines the center. If the same inner AND also feeds a genuine double star, neither operand can be a singleton because both pure arms have at least two neighbors and the mixed clause contains both centers. Its two operands cannot both be pure arms because those arms are disjoint. Thus one is a pure arm and the intersection belongs to that arm. The same two raw inputs identify $c$ as an endpoint of the double star's central edge.
+
+Build the graph of the $d$ distinct central edges and include the centers in $H$ as additional vertices, even when isolated. Every component is associated with an inner AND, either from a double star or from a star certifying the membership of an isolated vertex in $H$. No such AND can be associated with different components. For double stars this follows from their common pure arm when sharing the AND. For stars counted in $H$ it follows from the preceding paragraph, including the case of a group containing both kinds of term. The graph has at most $s$ components and thus at most $d+s$ vertices. All centers outside this graph can be supplied by the $r$ ordinary stars and at most $e-h$ remaining three-clause stars, after reserving one representative for each center in $H$. Hence $|C|\le d+s+r+e-h$.
+
+The total is at least $51+|C|$, proving 64 for arbitrary sharing and 65 for a mixed cover. A circuit with ORs of earlier products inside a later AND, or with products of four or more raw disjunctions, falls outside this theorem. The unrestricted desk assignment remains open.
 
 ## Verification
 
