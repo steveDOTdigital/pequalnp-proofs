@@ -33,10 +33,6 @@ class Search {
                 unsigned leaves = (pending & ~(1u << a) & ~(1u << b)) | (1u << wire);
                 if (__builtin_popcount(leaves) > after + 1) continue;
                 for (int isOr = 0; isOr <= 1; ++isOr) {
-                    if (depth == 0 && N == 8) {
-                        // One pair per possible Hamming distance in the cube.
-                        if (a || (b != 1 && b != 3 && b != 7)) continue;
-                    }
                     auto val = isOr ? (wires[a] | wires[b]) : (wires[a] & wires[b]);
                     if (!after && val != target) continue;
                     auto right = ~(val ^ target);

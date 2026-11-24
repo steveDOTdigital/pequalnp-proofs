@@ -8,7 +8,7 @@ The cube is bipartite. Its even-parity vertices are 0, 3, 5 and 6. Each is adjac
 
 ## Search
 
-The program represents a wire by its complete truth table. A minimum circuit has only binary gates with distinct parents: constants, unary gates, default-false references and gates equal to an earlier signal can be simplified without increasing size. Every gate must reach the output. Independent ready gates can be scheduled in order of larger operand index, breaking ties by smaller index. Newly enabled gates have larger operand indices, so this gives a nondecreasing order. For the full cube, minimize this order also over cube symmetries. The first pair can then be chosen from (0,1), (0,3) and (0,7), one for each Hamming distance. All first pairs are allowed for the vertex deletion.
+The program represents a wire by its complete truth table. A minimum circuit has only binary gates with distinct parents: constants, unary gates, default-false references and gates equal to an earlier signal can be simplified without increasing size. Every gate must reach the output. Independent ready gates can be scheduled in order of larger operand index, breaking ties by smaller index. Newly enabled gates have larger operand indices, so this gives a nondecreasing order. The enumerator tries every first pair for both graphs.
 
 The minimal true inputs are the graph edges. The maximal false inputs are the maximal independent sets. For monotone circuits these boundary inputs determine the function. An earlier wire dominates a gate if it is at least the gate on all the positive boundary inputs and at most the gate on all the negative boundary inputs. Substituting the earlier wire preserves a correct output by monotonicity. Thus a minimum circuit never contains such a gate. The same argument permits constant propagation.
 
@@ -25,7 +25,7 @@ On each such zero slice, the full-cube search can count prefix gates dominated b
 | 8 | 7, 8, 9, 10, 11, 12 | UNSAT |
 | 8 | 13 | Explicit Lean-checked construction |
 
-Compile with a C++17 compiler at optimization level 3 and run the executable without arguments. The twelve-gate exclusion visits 122,822 prefix nodes. A separate run omitting all cofactor bounds also excluded eleven gates in 1,259,881 visits. The Lean file certifies the upper bound. The computational exclusion uses the enumeration and pruning arguments above.
+Compile with a C++17 compiler at optimization level 3 and run the executable without arguments. The twelve-gate exclusion visits 736,331 prefix nodes. A separate run omitting all cofactor bounds also excluded eleven gates in 10,107,769 visits. The Lean file certifies the upper bound. The computational exclusion uses the enumeration and pruning arguments above.
 
 ## Independent check by deleting and restoring a vertex
 
