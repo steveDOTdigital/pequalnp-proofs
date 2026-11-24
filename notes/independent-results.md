@@ -16,6 +16,7 @@ Our vertex-cover proof shows that a cover of size t contains every vertex of deg
 
 | Assignment | Result | Evidence |
 | --- | --- | --- |
+| L-meta-969, three-cube edge function | Exhaustive search gives the exact minimum of thirteen AND/OR gates. Lean checks the matching circuit. | [Construction and exhaustive lower bound](three-cube.md) |
 | L-meta-1343, eleven-vertex graph, range 19 | Six AND gates are necessary even with free ORs. For exactly two such dirty gates, seven ANDs are necessary and sufficient. A 22-gate circuit realizes the bound. | [Counting argument and checked cases](eleven-vertex-dirty-ands.md) |
 | L-meta-955, one NOT for linear OR families | Counting and checked SAT exclusions rule out every instance on at most ten inputs. A distinct predecessor for every large output rules out a saving for pair and triple families of any input size. | [Argument and search counts](one-not-linear-ors.md) |
 | L-meta-1035, one NOT on at most seven inputs | A six-input family with fifteen monotone outputs takes seventeen gates with one NOT. Its exact AND/OR minimum is eighteen. | [Construction and lower bound](six-input-negation.md) and [formal refutation](SixInputNegation.lean) |
