@@ -1,0 +1,49 @@
+# Shared endpoints in the large-order plane bound
+
+Work in progress on L-meta-3051. A flag is an incident point-line pair. The target bound for projective planes of order at least 300 remains open.
+
+## A restriction on any small circuit
+
+For each gate operand, set every earlier AND output to false and follow the OR wires back to raw inputs. Call the resulting raw set its support. Define the direct test of an AND by applying it to its operands' supports. Invalid reads are empty, a one-operand AND copies its one input, and an empty AND always passes. A flag is protected by a gate when its direct test passes on the flag and fails on every forbidden singleton or pair sharing an endpoint of the flag. These small forbidden inputs satisfy the assignment's promise.
+
+**At most as many flags can be protected as there are gates in the circuit.** Here is a counting argument for arbitrary binary monotone circuits, including shared wires and unused gates.
+
+A gate with zero or one operand cannot protect a flag. The empty gate accepts a singleton. If the single operand is active, its support already meets one of the flag's two singleton inputs. For a binary AND to protect a flag, one endpoint must lie only in its first support and the other only in its second. Otherwise one of the flag's singletons activates both. Within the support rectangle the entire row and column through those endpoints must consist of edges, since a missing entry gives a forbidden pair retaining one endpoint. In particular each support lies wholly in one shore.
+
+In a four-cycle-free incidence matrix, a rectangle containing a missing entry has at most one entry whose whole row and column are present. Two such entries in different rows force their common set of columns to have at most one member, and that column is full. Two such entries in the same row and different columns force their set of rows to have at most one member, and that row is full. The [Lean lemma](PlaneProtectedFlags.lean) formalizes this argument for arbitrary sets and relations.
+
+Every nonempty full rectangle is a star. Give it a center, choosing either endpoint for a single edge. For each center collect the gates assigned to it, their number $t$, and the union $U$ of their leaf sets. Computing these leaf sets from raw inputs along OR-only paths takes at least $|U|-t$ distinct OR gates whose supports contain at least two leaves of that center. To see this, start with separate components for the leaves in $U$. Process the OR-only cones ending at the leaf operands. An input belongs to a single component. An OR joins at most two components and afterwards all of its leaves belong to one. Gates with empty support or singleton support need no join. The $t$ final operands cover $U$, so at most $t$ components remain. Every OR used for a join has at least two distinct raw leaves and its entire support is contained in the center's neighbors. Two centers cannot share such an OR, since two leaves determine at most one center.
+
+Summing over centers, their full rectangles protect at most the number of those OR gates plus the number of full-rectangle AND gates. Every other AND protects at most one additional flag. This proves the count.
+
+## What the count forces downstream
+
+A counterexample with $s<Nq/100$ gates would have more than 99 percent of its $N(q+1)$ flags protected by no gate at all. Fix any one such flag and any gate-by-gate certificate of its acceptance. A certificate follows a true operand through each OR and both operands through each AND. It must contain an AND, since a raw-to-output OR-only path would accept one of the flag's singletons. Select a lowest AND on this certificate. Its direct test passes on the flag, and it also passes on a forbidden singleton or pair sharing an endpoint. The actual AND is therefore true on both inputs by monotonicity. Follow any certificate path from it toward the output. On the forbidden row the output is false, so some first subsequent gate on that path changes from a true incoming wire to a false output. It must be an AND with a different operand that is false there. All those certificate wires remain true on the flag. An empty AND at the bottom of a certificate has the same conclusion.
+
+This gives a later gate that blocks a specific wrong input for each of these flags. The remaining problem is to control how often the same gates can serve those roles across flags. The counting argument alone does not bound that multiplicity.
+
+## A conjunction of at most one third of the order
+
+There is an additional unconditional result for a final conjunction of several circuits. Each factor accepts every incident pair. Permit arbitrary wire sharing. If there are $k$ factors with $2k≤q$, one factor is correct on every singleton and pair after deleting at most $2(k-1)(q+1)$ input vertices.
+
+Start with all vertices and no selected rows. If a remaining factor accepts an incidence-free singleton or pair on the surviving vertices, select that row. Delete all neighbors of its vertices from the opposite shores, then remove that factor from consideration. The new row is compatible with every previously selected row. At most two new lines are selected and at most $2(q+1)$ vertices are deleted per step. If all $k$ factors could be removed, their conjunction would accept the union of the selected rows by monotonicity. This is an incidence-free row with at most $2k≤q$ lines, which is impossible. At least one remaining factor must reject all incidence-free singletons and pairs on the surviving vertices. The original flag tests ensure it accepts every surviving flag. The Lean lemma `anchor` proves the restriction for arbitrary monotone factors and the exact line budget. [Lean proof](PlaneProtectedFlags.lean)
+
+In particular, suppose the lower part of every factor is a disjunction of AND gates whose operands are disjunctions of raw variables. An operand or a final disjunction may share any of its OR gates with other factors. On the surviving inputs each active AND of the selected factor must now give a full star. A false pair or accepted singleton at a terminal would pass through its output disjunction. The stars cover all surviving flags, so the leaf-set counting argument above requires at least one gate per surviving flag in this factor. Removing one vertex can remove at most $q+1$ flags. The whole circuit therefore has at least
+
+$$N(q+1)-2(k-1)(q+1)^2$$
+
+gates. For $3k≤q$ and $q≥300$ this exceeds $Nq/100$. Indeed $(q+1)^2=N+q≤(101/100)N$ for $q≥100$, so the number lost is at most $(202/300)Nq$. This rules out counters to the assignment throughout this circuit class. The order bound for arbitrary circuits is still open.
+
+The small control checks both orientations of every pair of raw supports on a six-cycle and all point-by-line rectangles on the Fano plane. With unordered operands there are 2,080 six-cycle tests and 16,384 Fano tests. The non-full rectangle bound is tight in both. [Control program](check-plane-protected-flags.py)
+
+## Eliminating AND gates on an arbitrary set of paths
+
+The argument extends beyond a final conjunction. Select any $t$ AND gates in the original dependency graph. For each selected gate use the monotone predicate that at least one of its operands is true. Among incidence-free input sets $A$ satisfying $|A|≤2$ times the number of selected predicates already true, maximize that number. The empty set is eligible. If an inactive predicate turned on after adding a compatible singleton or pair, the larger row would still meet the size budget and would improve the maximum. This is the kernel-checked lemma `stabilize`. It gives $|A|≤2t$ and keeps every still-inactive predicate false on every compatible extension by at most two inputs. [Lean proof](PlaneProtectedFlags.lean)
+
+Fix $A$ true and all its neighbors false. Each selected AND with an operand true on $A$ can be replaced by its other operand. If none of its operands is true on $A$, every operand remains false on compatible negative singletons and pairs, so replace the gate by either operand. An empty AND is the constant true and needs no predicate. A one-operand AND is already a copy. Simultaneous replacement preserves every original wire value on those negative rows by chronological induction. On the positive rows each replacement can only increase values. The circuit therefore still accepts all surviving flags and rejects every surviving incidence-free singleton and pair, provided $2t+2≤q$. Invalid reads can be treated as constant false at the time they are made. Constants and copies can be propagated without increasing the gate count.
+
+Suppose the chosen gates meet every dependency path joining two distinct AND gates, with at least one of its two endpoint ANDs chosen. Equivalently, the ANDs left unchosen form an antichain under dependency. Replacing the selected gates by projections leaves at most one AND on any input-to-output path. Every surviving terminal AND therefore gives an incidence star on the remaining inputs, as in the previous counting argument. The circuit needs at least the number of surviving flags. At most $2t(q+1)$ vertices were excluded by adjacency to $A$. Anchored vertices have no surviving incident edges, so fixing them adds no further flag losses. Hence
+
+$$N(q+1)≤s+2t(q+1)^2.$$
+
+For $q≥300$ and $100t≤49q$ the budget condition $2t+2≤q$ holds. The displayed inequality already implies $Nq≤100s$, as checked by `remainingSize` in Lean. Thus a counterexample must require removing more than $49q/100$ ANDs to leave any antichain. The endpoints of any maximal matching of comparable AND pairs meet every such pair, so there must also exist more than $49q/200$ vertex-disjoint comparable pairs. The gate-replacement argument and its connection to the actual plane circuit still need a Lean formalization.
