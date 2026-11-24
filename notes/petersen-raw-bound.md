@@ -10,6 +10,8 @@ Let T be the theta graph on vertices 1,2,3,5,6,7,8. Its three paths between vert
 
 Deleting any cubic vertex of G gives a graph isomorphic to G minus vertex 0. Deleting its pendant vertex 4 gives T. Setting that essential input to zero removes a direct binary reader. Thus a cubic deletion costs at least twelve signed gates. An explicit monotone star circuit attains twelve. Deleting any degree-two vertex gives a graph isomorphic to G minus vertex 6. Our earlier proof gives twelve for this deletion. Using the stronger eleven-gate theta bound, the signed checker now excludes twelve in 32,772,611 prefixes. Its star formula uses thirteen.
 
+This also sharpens the previous flipped-input case. Its [Lean transfer theorem](PetersenDeletionTransfer.lean) loses two gates between the desk model and the signed deletion. The new thirteen-gate deletion lower bound therefore rules out fourteen original gates for every permitted flip, one gate beyond L-meta-3248's requested bound.
+
 Every first signed gate of a minimum circuit for G reads two different raw variables p and q. Variable p remains essential with q fixed to either value. With q zero select another neighbor of p. With q one, use q itself when they are adjacent. For nonadjacent p and q, p has a neighbor not adjacent to q since the minimum degree is two and G contains no four-cycle. Hence p needs another reader that bypasses the first gate. Fixing p to zero loses at least two binary gates. Every single-vertex deletion costs at least twelve, which proves the signed lower bound of fourteen.
 
 ## Circuits with and without a paid NOT
@@ -18,7 +20,7 @@ If a desk circuit of size at most fourteen contains a NOT, it has at most thirte
 
 For monotone circuits, a minimum candidate of size below fourteen is excluded by the signed bound. At fourteen the zero-cofactor bounds are twelve on cubic vertices and thirteen on degree-two vertices. The first-gate test leaves three orbits, all ORs, represented by (0,1), (0,2) and (0,3). The monotone prefix checker excludes them together in 76,089 prefixes. This completes the fifteen-gate lower bound.
 
-It suffices to test monotone circuits on the twelve edge pairs and twelve maximal independent sets. Each positive assignment contains one of the edge pairs. Every negative assignment is contained in a maximal independent set. The [packed evaluation lemma](PetersenPackedBoundary.lean) checks all these rows in parallel by wordwise AND and OR. The least significant twelve bits correspond to edges. The target word on the 24 rows is 4095.
+It suffices to test monotone circuits on the twelve edge pairs and twelve maximal independent sets. Each positive assignment contains one of the edge pairs. Every negative assignment is contained in a maximal independent set. The [packed evaluation lemma](PetersenPackedBoundary.lean) checks all these rows in parallel by wordwise AND and OR. The least significant twelve bits correspond to edges. The target word on the 24 rows is 4095. Lean [checks all 512 boundary witnesses and the reverse circuit construction](PetersenBoundaryComplete.lean). Any word program passing those rows lifts to a gate-list circuit of exactly the same size computing the full graph.
 
 ## Why the exhaustive checks cover minimum circuits
 

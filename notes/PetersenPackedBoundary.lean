@@ -16,7 +16,7 @@ def code (g : Gate) : Op :=
 def scalar (w : List Bool) (g : Gate) : List Bool :=
   w ++ [g.op.eval (g.inputs.map fun j => w.getD j false)]
 
-private theorem bitGet (w : List ℕ) (j i : ℕ) :
+theorem bitGet (w : List ℕ) (j i : ℕ) :
     (w.getD j 0).testBit i = (w.map (fun u => u.testBit i)).getD j false := by
   simp only [List.getD,List.getElem?_map]
   cases w[j]? <;> simp
@@ -46,7 +46,7 @@ private theorem gate (w : List ℕ) (g : Gate) (h : (g.op = .and ∨ g.op = .or)
     rw [Nat.testBit_or,bitGet,bitGet]
     simp [GateOp.eval]
 
-private theorem fold (gs : List Gate) (h : ∀ g ∈ gs, (g.op = .and ∨ g.op = .or) ∧ g.inputs.length = 2)
+theorem fold (gs : List Gate) (h : ∀ g ∈ gs, (g.op = .and ∨ g.op = .or) ∧ g.inputs.length = 2)
     (s : List ℕ) (i : ℕ) :
     ((gs.map code).foldl packed s).map (fun u => u.testBit i) = gs.foldl scalar (s.map (fun u => u.testBit i)) := by
   induction gs generalizing s with
