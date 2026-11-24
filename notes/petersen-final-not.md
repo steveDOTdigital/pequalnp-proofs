@@ -1,6 +1,6 @@
 # Petersen with a prescribed nonedge AND and an output NOT
 
-L-meta-1916 supplies the signal `x4 AND x6` for free to a list of at most thirteen fan-in-two gates and applies one final NOT. In the original gate count the supplied AND and the final NOT both cost one. A counterexample to this step exists **if and only if the nine-input Petersen edge function has a monotone circuit with at most twelve binary gates**. The equivalence is a written argument. [Lean checks](PetersenFinalNot.lean) its two semantic steps.
+L-meta-1916 supplies the signal `x4 AND x6` for free to a list of at most thirteen fan-in-two gates and applies one final NOT. In the original gate count the supplied AND and the final NOT both cost one. A counterexample to this step exists **if and only if the nine-input Petersen edge function has a monotone circuit with at most twelve binary gates**. The equivalence is a written argument. [Lean checks](PetersenFinalNot.lean) the normalization of a single internal NOT for the actual gate-list evaluator. The finite exclusions below rule out the twelve-gate monotone circuit.
 
 ## Counting the NOTs
 
@@ -26,4 +26,35 @@ At twelve binary gates an unrestricted monotone candidate is globally minimal. F
 
 For the degree-two vertices 4, 6 and 7, setting v to one leaves a function requiring at least nine binary gates. Two OR readers are impossible. They would both become true, and their consumers must include at least two further gates. If the readers feed one another, the second is redundant. If both feed only the same gate, factoring v out of their conjunction or disjunction replaces three gates by at most two. Neither reader can be the output because the restricted function is nonconstant. Four removals would leave at most eight gates, contradicting the nine-gate bound.
 
-These leave a twelve-gate monotone synthesis question. The graph has twelve minimal true rows and twelve maximal false rows; together they characterize any monotone candidate. A sixteen-gate control computes the full table. The controls and lower bounds alone do not settle the twelve-gate question.
+## A computer-assisted exclusion at twelve monotone gates
+
+The degree-three vertices form the six-cycle 0, 1, 2, 3, 8, 5 in this order. Each degree-two vertex joins a pair of opposite cycle vertices. Rotations act transitively on each of the two degree classes. It suffices to examine deletion of 0 and deletion of 4.
+
+| Induced graph | Binary-gate lower bound with free inversions | Monotone minima excluded by SAT | Resulting monotone lower bound |
+| --- | --- | --- | --- |
+| Delete 4 | 10 | 10 | 11 |
+| Delete 0 and 4 | 8 | 8 and 9 | 10 |
+| Delete 0 | 10 | By the preceding row | 11 |
+
+In the third row, vertex 4 is still essential. Setting it to zero removes at least its first reader. A ten-gate or smaller circuit would leave at most nine gates for the seven-vertex graph in the second row.
+
+Now take a smallest monotone circuit for the full graph. Fold constants and delete unary or redundant gates. Its first gate reads two different raw vertices, p and q. Set p to zero. For an AND, the first gate and one of its consumers disappear. For an OR, the gate becomes q and there must be another reader of p. Indeed, with q set to one, p remains essential. If p and q are adjacent, use the singleton q. Otherwise there is a neighbor of p which is not adjacent to q, because the graph has minimum degree two and no four-cycle. Select that neighbor together with q. In either case toggling p changes the answer while the first OR stays true. The second reader of p also simplifies away when p is zero. In all cases at least two binary gates disappear, leaving a graph that needs at least eleven. The full graph therefore needs at least **thirteen monotone binary gates**. By the equivalence above, L-meta-1916 has no counterexample.
+
+### Finite checks and their completeness
+
+Run the following commands from the proof repository's `lean` directory. The [encoder](check-petersen-monotone.py) uses the Python standard library and the CaDiCaL shipped with Lean. All three cases returned UNSAT with its internal proof checker enabled. The eight-input instance has 1,442 variables and 28,595 clauses. The two seven-input instances have 937 variables and 12,535 clauses, and 1,050 variables and 17,136 clauses, respectively.
+
+```sh
+python3 ../notes/check-petersen-monotone.py degree-two 10
+python3 ../notes/check-petersen-monotone.py theta 8
+python3 ../notes/check-petersen-monotone.py theta 9
+```
+
+The solver models a smallest circuit of the specified size, one ordered pair of earlier wires and an operation per gate. Every essential input and every nonfinal gate has a reader. Commutativity sorts the inputs of each gate. Gates can be topologically sorted by their larger input index, using the smaller index to break ties. At each step pick the least ready pair; any newly eligible pair contains the wire just produced. The output is last because every gate lies in its cone.
+
+The two graphs have 10 and 8 minimal positive rows and 9 and 7 maximal negative rows, respectively. Monotonicity makes these rows sufficient. In a minimum circuit, every gate is true on at least one minimal positive and false on at least one maximal negative. Otherwise forcing a constant preserves the answer on the boundary and removes that gate. An OR needs both operand patterns 01 and 10 among the positives, since omitting a dominated operand preserves the positives and only decreases the negatives. Dually, an AND needs both patterns among the negatives.
+
+For each vertex, the encoder also restricts its number of direct readers. If there are d readers and k of them are forced to a constant by fixing the vertex, at least d+min(k,2) gates disappear. All d readers simplify. A consumer of a forced reader cannot itself read the same vertex directly: by absorption it would be redundant. Each forced reader has a consumer, since every single-vertex restriction tested here is nonconstant. If two forced readers have only one consumer between them, that consumer reads both. Factoring their common raw literal replaces three gates by at most two, contradicting minimality. These observations account for the additional one or two eliminations. The allowed number is computed from the unrestricted lower bound for each individual restriction.
+
+Positive controls for both graphs also passed with all of these constraints enabled, using star circuits of thirteen and eleven gates. The solver independently synthesized an eleven-gate seven-vertex circuit, whose decoded gates matched all 128 inputs. These are checked SAT results and a written circuit argument. Lean verifies the one-inversion normalization for the project's actual gate-list evaluator. Formalizing the bounded lower bounds is a separate obligation.
+
