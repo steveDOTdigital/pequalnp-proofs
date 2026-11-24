@@ -56,7 +56,23 @@ The centers cover all 52 incidences. The disjoint incidences at offset zero forc
 
 Consequently a genuine double star forces at least $51+14=65$ gates. If all surviving three-clause products are genuine double stars, all terminals are pure, and one mixed OR is additionally required, giving 66. If only stars survive and at least one has three clauses, then $r+e\ge13$ and $s\ge1$, also giving at least 65. If all surviving products are ordinary, the flat bound of 64 applies.
 
-The unrestricted assignment also allows three-clause stars requiring impure terminals on both sides, deeper products, and AND gates applied to disjunctions of earlier products.
+## Stars on both sides with arbitrary OR sharing
+
+There is a second extension. Allow all star centers to be chosen independently on either side. Suppose each surviving three-clause product has its own inner AND. Then the circuit needs at least 64 gates, and at least 65 if the chosen centers include both points and lines. This case still permits arbitrary shared OR preprocessing.
+
+Fix a star center $c$. Form a graph on the raw inputs outside its incidence neighborhood, excluding $c$. Join $x$ and $y$ if no negative quadrangle activates $c,x,y$ together. This graph has no loops or four-cycles. The [finite check](quadrangle-conflicts.py) enumerates all 234 quadrangles, builds the graph at each of the 26 centers, and finds that any two distinct vertices have at most one common neighbor.
+
+Consider the one or two clauses missed by $c$ in a three-clause star. If there is only one, it contains only neighbors of $c$, since any other input can be active with $c$ on a negative row. If there are two, their sets of inputs outside the neighborhood are disjoint and every vertex of one is joined in this graph to every vertex of the other. Otherwise a negative row would satisfy all three clauses. Absence of a four-cycle implies that one of the sets has size at most one. Choose that clause as the terminal. It contains all the accepted neighbors and at most one raw input outside the center's neighborhood.
+
+For each center, project its terminal cones as above. To count merges, choose a forest in which every source has one path forward to a charged terminal. One construction retains one outgoing edge at each nonterminal, keeps terminals as roots and prunes branches containing no raw source. Each binary branching gate in this forest merges two disjoint nonempty sets of source leaves. There are at least $|U_c|-k_c$ such gates.
+
+Suppose one original OR gate is charged by two different forests. Its raw support contains at least two neighbors of each center and is contained in the support of a chosen terminal for each. Opposite-side centers are impossible because both neighbors of the second center would be outside the first center's neighborhood. Distinct same-side centers have at most one common neighbor. Since each terminal contains at most one input outside its center's neighborhood, the common gate must contain exactly three raw inputs. Two are neighbors of one center and two of the other. For each center its pair must be split between the two operands of the gate, one exclusive input per operand. Otherwise projection would have bypassed this gate. On three inputs at most two distinct pairs can be split this way. Each pair determines at most one center, so a gate is charged at most twice.
+
+In either forest a doubly charged gate branches over exactly two source leaves. Distinct such branching vertices under the same terminal have disjoint leaf pairs. In a rooted tree, two different branching vertices with exactly two descendant leaves cannot be ancestors of each other. The terminal has at most four leaves, so it receives at most two double charges. Moreover, every such terminal is a three-clause star: a pure neighbor terminal has no outside input and cannot contain the required triple for its center. Counting both ends of each double charge, the total number of excess charges is at most $e$, the number of three-clause stars.
+
+The preprocessing count is therefore at least $52+d-(r+e+2k)-e$. The $r+2(e+k)$ ANDs and at least $r+e+k-1$ output ORs give at least $51+d+r+e+k$ gates. The $d$ distinct central edges have at most $2d$ endpoints, and $d\le k$, so the number of centers is at most $r+e+2d\le r+e+d+k$. The cover bounds of 13 and 14 give the claimed totals.
+
+These arguments leave open simultaneous sharing of inner ANDs across unrestricted impure stars on both sides, deeper products, and AND gates applied to disjunctions of earlier products.
 
 ## Verification
 
