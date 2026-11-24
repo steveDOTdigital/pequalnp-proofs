@@ -56,6 +56,7 @@ int boundaryMinimum(const Literals& pos, const Literals& neg, Mask signs, Mask a
     return cost.back();
 }
 
+#ifndef PETERSEN_RECTANGLES_LIBRARY
 int main(int argc, char** argv) {
     std::vector<Mask> negative;
     constexpr int reflect[] = {0,5,8,3,4,1,7,6,2};
@@ -122,3 +123,4 @@ int main(int argc, char** argv) {
         }
     }
 }
+#endif
