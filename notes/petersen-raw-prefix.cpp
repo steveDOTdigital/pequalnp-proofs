@@ -2,6 +2,7 @@
 // Input contains a budget, the edge bit masks, and the permitted first gates.
 // The driver supplies established lower bounds for every one-bit cofactor.
 // Signed wires are normalized to false on the empty input: a NOR is stored as OR.
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -11,17 +12,20 @@
 
 #include <bitset>
 using Table = std::bitset<(1u << WIDTH)>;
-constexpr int n = WIDTH, maxWires = 26, domains = 2 * n;
+constexpr int n = WIDTH, maxWires = 26, domains = 2 * n + (SIGNED_MODE && n == 9 ? 9 : 0);
 using Bounds = std::array<int, domains>;
 using Needs = std::array<Table, n>;
+using Readers = std::array<std::array<unsigned char, 2>, n>;
 
 class Search {
     std::array<Table, maxWires> wires{}, good{};
     std::array<Table, domains> boundary{};
-    std::array<std::array<std::array<bool,n>,n>,4> first{};
+    std::array<std::array<std::array<bool,n>,n>,4> first{}, rawAllowed{};
     std::array<int, maxWires> lhs{}, rhs{}, op{};
     Table target = 0, global = 0;
     Bounds cap{};
+    std::array<int,domains> pinA{}, pinB{};
+    std::array<bool,domains> commonReader{};
     std::vector<std::array<int,3>> fixed;
     int budget, seconds;
     uint64_t nodes = 0;
@@ -29,7 +33,7 @@ class Search {
     bool expired = false;
 
     static Table bit(int row) { return Table(1) << row; }
-    bool visit(int depth, int minA, int minB, const Bounds& lost, const Needs& needs, unsigned pending) {
+    bool visit(int depth, int minA, int minB, const Bounds& lost, const Needs& needs, unsigned pending, const Readers& seen) {
         if ((++nodes & 4095) == 0 &&
             std::chrono::steady_clock::now() - start > std::chrono::seconds(seconds)) {
             expired = true;
@@ -43,6 +47,8 @@ class Search {
                 for (int isOr = 0; isOr < (SIGNED_MODE?4:2); ++isOr) {
                     if (depth < int(fixed.size()) && fixed[depth] != std::array<int,3>{isOr,a,b}) continue;
                     if (!depth && !first[isOr][a][b]) continue;
+                    // Each gate on raw pins could be put first in a legal ordering.
+                    if (b<n && !rawAllowed[isOr][a][b]) continue;
                     if (SIGNED_MODE && b >= n && (lhs[b-n] == a || rhs[b-n] == a)) continue;
                     Table val = isOr ? wires[a] | wires[b] : wires[a] & wires[b];
                     if (SIGNED_MODE) {
@@ -66,10 +72,26 @@ class Search {
                     Needs remaining{};
                     int mustRead = __builtin_popcount(nextPending);
                     for (int v = 0; v < n; ++v) {
-                        remaining[v] = needs[v] & ~(val ^ (val  >> (1<<v)));
+                        remaining[v] = needs[v] & ~(val ^ (val >> (1<<v)));
                         mustRead += remaining[v].any();
                     }
                     if (mustRead > after+1) continue;
+                    Readers readers = seen;
+                    if (SIGNED_MODE) {
+                        if (a < n) ++readers[a][isOr & 1];
+                        if (b < n) ++readers[b][(isOr >> 1) & 1];
+                        for (int v=0; v<n; ++v) {
+                            int total=readers[v][0]+readers[v][1]+int(remaining[v].any());
+                            for (int t=0; t<2; ++t) {
+                                // Each forced reader needs a separate consumer from the
+                                // direct readers. Two solely co-consumed forced signals
+                                // would replace three gates by at most two.
+                                int consumers=std::min(2,int(readers[v][t]));
+                                if (total+consumers>cap[2*v+t]) admissible=false;
+                            }
+                        }
+                        if (!admissible) continue;
+                    }
                     Bounds dropped = lost;
                     for (int d = 0; d < domains; ++d) {
                         bool redundant = SIGNED_MODE ?
@@ -80,7 +102,10 @@ class Search {
                         dropped[d] += redundant;
                         // The same raw bit still required in the suffix ensures
                         // another gate can be folded after this restriction.
-                        if (dropped[d] + (remaining[d/2].any()) > cap[d]) {
+                        int extra=remaining[pinA[d]].any();
+                        if (pinB[d]>=0 && remaining[pinB[d]].any()
+                            && (!extra || !commonReader[d])) ++extra;
+                        if (dropped[d] + extra > cap[d]) {
                             admissible = false;
                             break;
                         }
@@ -88,7 +113,7 @@ class Search {
                     if (!admissible) continue;
                     lhs[depth] = a; rhs[depth] = b; op[depth] = isOr;
                     wires[wire] = val; good[wire] = correct;
-                    if (!after || visit(depth+1,a,b,dropped,remaining,nextPending)) return true;
+                    if (!after || visit(depth+1,a,b,dropped,remaining,nextPending,readers)) return true;
                     if (expired) return false;
                 }
             }
@@ -105,11 +130,27 @@ public:
             int e; std::cin >> e;
             for (int row=0; row<(1<<n); ++row) if ((e&row)==e) target |= bit(row);
         }
-        for (int& c: cap) { int lower; std::cin >> lower; c=budget-lower; }
+        for (int d=0; d<domains; ++d) {
+            pinA[d]=d/2; pinB[d]=-1;
+            if (d>=2*n) std::cin >> pinA[d] >> pinB[d];
+            int lower; std::cin >> lower; cap[d]=budget-lower;
+        }
         std::cin >> choices;
         while (choices--) {
             int o,a,b; std::cin >> o >> a >> b;
             first.at(o).at(a).at(b)=true;
+        }
+        std::cin >> choices;
+        while (choices--) {
+            int o,a,b; std::cin >> o >> a >> b;
+            rawAllowed.at(o).at(a).at(b)=true;
+        }
+        for (int d=2*n; d<domains; ++d) {
+            int a=pinA[d],b=pinB[d];
+            if (a<0 || a>=b || b>=n) std::exit(2);
+            for (int o=0; o<4; ++o) commonReader[d] |= rawAllowed[o][a][b];
+            for (int r=0; r<(1<<n); ++r)
+                if (!(r & ((1<<a)|(1<<b)))) boundary[d] |= bit(r);
         }
         int fixedSize;
         std::cin >> fixedSize;
@@ -137,7 +178,7 @@ public:
         }
         for (int i=0;i<n;++i) good[i]=~(wires[i]^target);
         start=std::chrono::steady_clock::now();
-        bool found=visit(0,0,1,Bounds{},needs,0);
+        bool found=visit(0,0,1,Bounds{},needs,0,Readers{});
         if (found) {
             // Re-evaluate every truth row independently from the decoded gates.
             for (int r=0;r<(1<<n);++r) {

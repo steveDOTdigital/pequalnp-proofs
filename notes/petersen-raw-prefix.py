@@ -1,5 +1,5 @@
 """Enumerate normalized minimum circuits for Petersen graph restrictions."""
-from itertools import combinations, product
+from itertools import combinations
 from pathlib import Path
 import argparse
 import runpy
@@ -54,12 +54,12 @@ def bounds(labels, signed):
     return facts
 
 
-def eligible(labels, signed, cost, table, facts):
-    maps=list(graph["bijections"](labels,labels))
+def eligible(labels, signed, cost, table, facts, orbit=True):
+    maps=list(graph["bijections"](labels,labels)) if orbit else []
     out=set()
     for i,j in combinations(range(len(labels)),2):
         a,b=labels[i],labels[j]
-        if any(tuple(sorted((m[a],m[b]),reverse=True)) < (b,a) for m in maps): continue
+        if orbit and any(tuple(sorted((m[a],m[b]),reverse=True)) < (b,a) for m in maps): continue
         for op in range(4 if signed else 2):
             if not signed and op==0 and (a,b) not in edges(labels): continue
             p,q=(op & 1,op >> 1) if signed else (op,op)
@@ -73,7 +73,7 @@ def eligible(labels, signed, cost, table, facts):
     return sorted(out)
 
 
-def run(labels, costs, seconds, signed):
+def run(labels, costs, seconds, signed, first=None):
     n=len(labels)
     assert n in (6,7,8,9) and labels==sorted(set(labels))
     e=edges(labels)
@@ -87,11 +87,26 @@ def run(labels, costs, seconds, signed):
         for budget in costs:
             allowed=eligible(labels,signed,budget,table,facts)
             inp=[budget,seconds,len(e),*[(1<<labels.index(a))|(1<<labels.index(b)) for a,b in e],
-                 *[facts[v,t] for v in labels for t in range(2)],len(allowed)]
+                 *[facts[v,t] for v in labels for t in range(2)]]
+            if signed and n==9:
+                pairs=[]
+                for a,b in combinations(labels,2):
+                    lb=signed_bound([v for v in labels if v not in (a,b)])
+                    if lb>=11: pairs.append((labels.index(a),labels.index(b),lb))
+                assert len(pairs)==9
+                for pair in pairs: inp.extend(pair)
+            inp.append(len(allowed))
             for gate in allowed: inp.extend(gate)
-            inp.append(0)
+            raw_pairs=eligible(labels,signed,budget,table,facts,orbit=False)
+            inp.append(len(raw_pairs))
+            for gate in raw_pairs: inp.extend(gate)
+            if first is None:
+                inp.append(0)
+            else:
+                assert first in allowed, "the seed must be a surviving orbit representative"
+                inp.extend((1,*first))
             print("".join(map(str,labels)),budget,"signed" if signed else "monotone",
-                  "first gates",len(allowed),flush=True)
+                  "first gates",len(allowed),"fixed",first,flush=True)
             res=subprocess.run([str(exe)],input=" ".join(map(str,inp))+"\n",capture_output=True,
                                text=True,timeout=seconds+35,check=True)
             print(res.stdout.strip(),flush=True)
@@ -102,5 +117,6 @@ if __name__=="__main__":
     parser.add_argument("labels");parser.add_argument("budgets")
     parser.add_argument("--seconds",type=int,default=120)
     parser.add_argument("--signed",action="store_true")
+    parser.add_argument("--first",help="Operator and two local indices, comma separated")
     a=parser.parse_args()
-    run(list(map(int,a.labels)),list(map(int,a.budgets.split(","))),a.seconds,a.signed)
+    run(list(map(int,a.labels)),list(map(int,a.budgets.split(","))),a.seconds,a.signed,tuple(map(int,a.first.split(","))) if a.first else None)
