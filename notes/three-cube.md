@@ -26,3 +26,24 @@ On each such zero slice, the full-cube search can count prefix gates dominated b
 | 8 | 13 | Explicit Lean-checked construction |
 
 Compile with a C++17 compiler at optimization level 3 and run the executable without arguments. The twelve-gate exclusion visits 122,822 prefix nodes. A separate run omitting all cofactor bounds also excluded eleven gates in 1,259,881 visits. The Lean file certifies the upper bound. The computational exclusion uses the enumeration and pruning arguments above.
+
+## Independent check by deleting and restoring a vertex
+
+The [second enumerator](check-three-cube-lifts.cpp) starts from the six-cycle formed by deleting opposite cube vertices 0 and 7. It uses only exact truth tables, the ordering of independent gates, and the count of wires that still need a reader. It uses neither boundary domination nor lower bounds on the restricted functions to prune the enumeration.
+
+A minimum circuit can be taken to have distinct binary operands at every gate, with every gate contributing to the output. Fixing an input to zero removes every direct reader of that input by constant propagation. When a reader is an AND, its output becomes zero, so its consumer can be removed too. The graphs below contain edges after the restriction, so a direct AND reader of the pinned input cannot itself be the output.
+
+**From six vertices to seven.** The six-cycle needs eight gates. The base search checks every smaller feasible size and gives six ordered eight-gate circuits. If a nine-gate circuit computed the seven-vertex function, fixing vertex 7 to zero would leave at least eight gates. Vertex 7 is essential, so it could have exactly one reader, necessarily an OR. Otherwise at least two gates would disappear. Thus the nine-gate circuit would be obtained from an eight-gate cycle circuit by inserting one OR of vertex 7 and an existing wire, then redirecting a nonempty subset of that wire's uses. An inserted OR cannot be the output since the singleton vertex 7 must be rejected. Of all 114 such insertions, none works. The same argument excludes a circuit with eight gates or fewer. The [Lean restriction lemmas](ThreeCubeRestrictions.lean) identify this induced six-cycle, derive its exact size from the project's cycle theorem, and verify the ten-gate upper bound for the seven-vertex function.
+
+**From seven vertices to eight.** Both operands of the first gate are raw inputs. If it is an AND of vertices x and y, x must have a second reader: with y zero, an edge between x and a different neighbor still detects x. Fixing x to zero removes both readers and a consumer of the first AND. That consumer must be distinct from the second reader, since a gate taking both x and the first AND just computes x or the first AND by absorption. This would leave at most nine gates from a twelve-gate circuit, contradicting the seven-vertex bound.
+
+If the first gate is an OR of x and y, x again needs another reader. There is a neighbor z of x distinct from y and nonadjacent to y. The two inputs with true vertices {y,z} and {x,y,z} have different target values and give the same value to the first OR. For adjacent or antipodal x,y their neighborhoods are disjoint. For x,y at distance two they share exactly two of their three neighbors. This argument excludes eleven gates immediately: pinning x to zero removes at least two gates and the remaining graph needs ten.
+
+A twelve-gate circuit would have exactly two readers of x, both ORs. Indeed, any third direct reader disappears on the zero slice. If the second reader were an AND, one of its consumers would also disappear and is distinct from the first gate. After pinning x, the remaining ten gates must form an optimal seven-vertex circuit. Both removed ORs had x as an operand, and one had a raw input y as its other operand. The ORs cannot feed directly into one another or take the same second operand, since then one is redundant. Thus every candidate is recovered by choosing two distinct base wires, at least one a raw input, and diverting nonempty subsets of their uses through the restored ORs. Vertex symmetry lets us use x = 0.
+
+| Base circuit | Ordered base circuits | Insertions tested | Correct restored circuits |
+| --- | ---: | ---: | ---: |
+| Six-cycle, eight gates | 6 | 114 | 0 |
+| Seven-vertex cube deletion, ten gates | 48 | 10,140 | 0 |
+
+These counts keep the input labels fixed and sort gates by their operand indices. They count gate sequences, without identifying all graph symmetries. On the zero slice every insertion already agrees with the base circuit. The program checks all 64 or 128 remaining truth assignments on the one slice. Compile the second enumerator with a C++17 compiler at optimization level 3 and run it without arguments.
