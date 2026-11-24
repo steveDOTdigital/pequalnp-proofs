@@ -1,0 +1,21 @@
+# Counting new low merges, and why one gate can account for every line
+
+For a bipartite incidence graph, fix a line $w$ by turning on just its line input. A wire is *low* if its restricted output can be true only when a point on $w$ is active. Its *alive set* consists of the points that make it true when switched on individually. Earlier low wires group points by joining the members of their alive sets. A *new low merge* is a low wire whose alive set meets at least two previously distinct groups.
+
+**Exact count.** For any monotone circuit with fan-in at most two that computes the incidence edge function on the single-line restrictions, the number of new low merges at $w$ is exactly $\max(\deg(w)-1,0)$. Summing over all lines gives the total number of incidences minus the number of nonempty lines. This holds for circuits with shared gates, isolated vertices and empty lines.
+
+[NewMergeIdentity.lean](NewMergeIdentity.lean) proves a stronger prefix identity. The number of current groups on a line plus the number of new merges seen so far equals the line's degree at every wire boundary. It uses the project's [per-wire classification](https://github.com/brilliant-hq/pequalnp-proofs/blob/22eee9e/lean/PEqualNP/MetaComplexity/Helpers/LowMergeCases.lean). A new merge joins exactly two groups. At the output, a nonempty line has one group. This strengthens the [existing summed inequality for ordinary low merges](https://github.com/brilliant-hq/pequalnp-proofs/blob/91ba7d36a241bb611c0c32e685c3a64d08c4c72c/lean/PEqualNP/Outside/L_meta_696.lean).
+
+When the incidence graph has no four-cycle, distinct lines newly merged at the same gate have distinct alive sets. A common set would contain two points on both lines. In particular, if all lines outside a set $T_g$ give gate $g$ the same alive set, that gate can account for at most $|T_g|+1$ new merges. The file proves the corresponding total bound, summing over gates only. It does not assume a common exceptional set for the whole circuit.
+
+## An optimal circuit can concentrate all new merges at one gate
+
+Take any even $m\ge4$. Let line $w_i$ join points $p_i,p_{i+1}$, with indices modulo $m$. The incidence graph is the cycle on $2m$ vertices. Build the $m$ point terms $z_i=p_i\mathbin{\wedge}(w_{i-1}\mathbin{\vee}w_i)$. Take the OR of the even terms, the OR of the odd terms and a final OR of the two groups. This costs $m$ preprocessing ORs, $m$ ANDs and $m-1$ output ORs, totaling $3m-1$. It is size-optimal by the project's [cycle-size theorem L106](https://github.com/brilliant-hq/pequalnp-proofs/blob/877892c5f5210a4fc520e717164081309b5581b7/lean/PEqualNP/MetaComplexity/L106.lean), after renaming the inputs into cyclic order.
+
+Fix $w_i$. The two surviving point terms are precisely its endpoints, one even and one odd. Every intermediate OR in either parity group sees at most one endpoint. The raw line ORs are constant on this restriction. A constant-true wire is not low, and a constant-false wire has empty alive set. Before the final gate, no low wire joins the endpoints. The final gate therefore makes a new low merge at every one of the $m$ lines simultaneously.
+
+The same graph also has an optimal circuit in which each new merge is at a different gate. Use one term $w_i\mathbin{\wedge}(p_i\mathbin{\vee}p_{i+1})$ per line, then OR the terms. The raw point OR for line $w_i$ is low there and merges its two endpoints. At any other line its support includes an off-line point, so it is not low there. Each line already has its unique new merge when the top ORs are reached.
+
+Thus even an optimal circuit on a graph of girth $2m$ can have unboundedly many new merges at a single gate. The exact sum still holds for both optimal constructions. A general linear lower bound needs control of the total across gates or a proof that a suitable optimal circuit can always be chosen.
+
+Lean checks the exact identities and the exceptional-set bound. It also computes both eight-cycle circuits on every input and proves the exact merge wire for each of their four lines. The construction and optimality proof for arbitrary even $m$ are given above. From `lean/`, build `PEqualNP.MetaComplexity.Helpers.LowMergeMain` and run `lake env lean ../notes/NewMergeIdentity.lean`.
