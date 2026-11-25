@@ -35,3 +35,9 @@ Pinning or identifying inputs can turn every live wire into a constant, an input
 [The cofactor theorem](SignedCofactorBound.lean) proves this for any map of truth-table rows. [The masked test and frontier induction](SignedTerminalCuts.lean) allow a certificate to stop at such a branch. They compare each wire only on rows in the slice, and the soundness proof checks that the slice covers every projected row.
 
 For six-input case 12244, a native search found 5,133 frontier states with these tests, including 3,265 that stopped immediately. The other 1,868 states needed successor checks. These counts concern the search. The general masked test and induction have been checked in Lean.
+
+## Supplying intermediate wires on a restriction
+
+A branch can also stop when some projected wires are genuine intermediate results. If a prefix of h binary gates supplies all the projected wires, and the restricted function needs n gates from its inputs, the suffix needs at least n−h gates. A live signal that becomes constant gives one more gate of savings on the projection. Different wires can share the same prefix gate.
+
+[The Lean proof](SignedCofactorPrefixes.lean) composes a suffix with the supplied prefix, proves that mapping rows commutes with each gate, and constructs a masked rejection test. A native search for case 12244 then visited 401 states. Of these, 253 stopped with inputs alone, 85 used one supplied gate and 8 used two. The other 55 required successor checks. For case 12360 the corresponding counts were 320 states, 240 input-only cuts, 43 one-gate cuts, 2 two-gate cuts and 35 successor checks.
