@@ -32,3 +32,11 @@ Run `python3 notes/seven-vertex-one-not.py` from the proof repository with a C++
 | 127 (full graph) | 12 | 12 | 62 | 24,587 |
 
 The 730-prefix prism calculation is the remaining kernel-certification target for the shorter proof. The separate unrestricted seven-input calculation verifies the stronger 12-gate signed minimum.
+
+## Where a useful negation would have to occur
+
+There is also a restriction using the already proved [monotone prism lower bound](https://github.com/open-goat/pequalnp-proofs/blob/fdf35ff0e30a2a395d0b1337ca148bc55d77ae33/lean/PEqualNP/Outside/L_meta_742.lean). In any circuit of length at most eleven for this target with exactly one NOT, the wire feeding that NOT must take **both** Boolean values on the slice where input 0 is false.
+
+Suppose the wire were constant on the slice. Replace the NOT output there by the corresponding opposite constant. Input 0 must reach the output along a path avoiding the NOT. Otherwise increasing input 0 from false to true could only increase the input to the NOT, decrease its output, and decrease the final output, since all other gates are monotone. In fact enabling input 0 in the presence of vertex 3 alone makes the target rise. Thus an AND or OR on a path avoiding the NOT directly reads input 0. The output cannot itself be raw, since the target depends on all seven inputs.
+
+After pinning input 0 to false, eliminate this direct reader by constant propagation or by copying its other operand. The NOT is already a constant. Remove the remaining constants and copies to obtain an AND/OR circuit for the nonconstant prism using at most nine gates. The project's gate operations of arity zero or one and default-false reads obey the same simplifications. Relabel the prism in the order 1, 3, 5, 4, 6, 2. The two triples are triangles and the three matching edges join the corresponding positions. This contradicts the checked monotone lower bound of ten. In particular, a negation of input 0 itself, or of any monotone subcircuit that becomes constant when input 0 is false, cannot shorten the seven-input circuit.
