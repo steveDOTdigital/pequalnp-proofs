@@ -170,6 +170,63 @@ def singleton_masks(g):
     return {H >> 21 for H in signatures if all((v >> 21) & ~(H >> 21) for v in RAW[1:])}
 
 
+def read_once_checks():
+    """A normalized read-once helper is a union of disjoint component products."""
+    star_masks = [sum(1 << i for i in flags) for flags in incident]
+    columns = [sum(1 << v for v in col) for col in negatives]
+    by_first = [[] for _ in range(14)]
+    for vertices in range(1, 1 << 14):
+        first = vertices & -vertices
+        reached = first
+        while True:
+            larger = reached
+            for edge in edge_bits:
+                if edge & reached and edge & vertices == edge:
+                    larger |= edge
+            if larger == reached:
+                break
+            reached = larger
+        if reached != vertices or reached == first:
+            continue
+        flags = sum(1 << i for i, edge in enumerate(edge_bits) if edge & vertices == edge)
+        warm = sum(1 << j for j, col in enumerate(columns)
+                   if col & vertices & 127 and col & vertices & ~127)
+        by_first[first.bit_length() - 1].append((vertices, flags, warm))
+    assert sum(map(len, by_first)) == 5755
+    masks = {g: set() for g in range(7, 14)}
+    signatures = set()
+
+    def visit(unused, vertices, flags, warm):
+        g = bin(vertices).count('1') - 1
+        if g >= 7 and warm and all((v >> 21) & ~warm for v in RAW):
+            cold_price = price(full & ~flags)
+            # Isolated vertices are outside the cold-row lower bound. Every
+            # vertex missing from a warm maximal independent column is forced.
+            extra = sum(1 for v, star in enumerate(star_masks)
+                        if not star & ~flags and warm & ~(RAW[v] >> 21))
+            if cold_price + extra <= 25 - g:
+                masks[g].add(warm)
+                signatures.add((g, flags, warm))
+        while unused:
+            low = unused & -unused
+            for group, group_flags, group_warm in by_first[low.bit_length() - 1]:
+                if group & unused == group:
+                    visit(unused & ~group, vertices | group,
+                          flags | group_flags, warm | group_warm)
+            unused ^= low
+
+    visit((1 << 14) - 1, 0, 0, 0)
+    assert len(signatures) == 420
+    for g, expected in zip(range(7, 14), (21, 84, 21, 21, 84, 0, 0)):
+        minimal = []
+        for warm in sorted(masks[g], key=lambda w: bin(w).count('1')):
+            if all(other & ~warm for other in minimal):
+                minimal.append(warm)
+        assert len(minimal) == expected
+        assert all(not partition(25 - g, warm) for warm in minimal)
+        print(f'Read-once helper, {g} gates: {expected} minimal warm masks excluded.')
+
+
 def main():
     check_geometry()
     all_columns = (1 << 37) - 1
@@ -194,7 +251,13 @@ def main():
                                        if x in support and y in support))
                     for support in combinations(range(14), g + 1))
         assert lower == expected and lower > 25 - g
-    print('Formula optimum, singleton helpers and all helpers of at most six gates verified.')
+    for size, bound in ((7, 20), (8, 18)):
+        cheapest = min(price(full & ~sum(1 << i for i, (x, y) in enumerate(edges)
+                           if x in support and y in support))
+                       for support in combinations(range(14), size))
+        assert cheapest == bound and cheapest > 25 - size
+    read_once_checks()
+    print('Formula optimum, singleton helpers, read-once helpers and all helpers up to eight gates verified.')
 
 
 if __name__ == '__main__':

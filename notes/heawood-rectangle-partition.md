@@ -4,7 +4,7 @@ Independent research on PEqualNP desk case L-meta-3005, by steveDOTdigital.
 
 The fourteen input words encode the seven points and seven lines of the Fano plane. Their low 21 positions are its incident point-line pairs, called flags. Their other 37 positions are precisely the maximal independent sets of the incidence graph. The target is 1 on the flags and 0 on those independent sets. Monotonicity extends these tests to all Boolean inputs.
 
-Every binary monotone formula computing this target has at least 28 variable occurrences and hence at least 27 gates. At equality the seven terms are exactly the stars of one shore, combined by OR. The same 27-gate lower bound holds for a circuit with one shared internal gate if its shared function accepts a singleton input, or if the formula feeding its shared output uses at most six gates. A 26-gate circuit with more extensive reuse remains open.
+Every binary monotone formula computing this target has at least 28 variable occurrences and hence at least 27 gates. At equality the seven terms are exactly the stars of one shore, combined by OR. The same 27-gate lower bound holds for a circuit with one shared internal gate if its shared function accepts a singleton input, if the formula feeding its shared output uses at most eight gates, or if that formula reads each raw variable at most once. A 26-gate circuit with more extensive reuse remains open.
 
 [Lean proof](HeawoodPartition.lean) · [Finite verification](heawood-rectangle-partition.py)
 
@@ -56,7 +56,19 @@ Every flag in F has both endpoints among the leaves of h, since no second single
 
 Finally, if H accepts no singleton, all its hot flags have both ends among at most g + 1 raw inputs. Removing every flag induced by such a support still leaves a subgraph of minimum price 27, 26, 24, 23, 21 and 20 respectively at g = 1 through 6. Each exceeds 25 − g.
 
-Consequently any putative 26-gate circuit either has at least two shared internal gates, or has exactly one whose input formula uses at least seven gates and accepts no singleton. These conditions do not settle the desk's unrestricted negative statement.
+## A read-once shared formula of arbitrary size
+
+Suppose the formula feeding H reads each of its raw variables at most once. We may assume H accepts no singleton, by the preceding result. Split all OR gates above the first AND gates. Each top AND has children on disjoint variable sets. For a positive two-vertex input to satisfy this AND, one vertex must be in each child, and that singleton must make its child true. A raw leaf among the top OR terms would give a true singleton and is impossible.
+
+In each AND, retain the endpoints of all flags accepted by that AND. Replace each child by the OR of the retained vertices on its side. This preserves all its accepted flags and only decreases its values on negative columns. It uses at most as many leaves as before. A term with no accepted flags can be dropped. If the accepted flags in a term have several connected components, split it into one product of two disjunctions per component. Each component uses its own point and line shores: the child partition is a two-coloring of the connected bipartite component, unique up to reversal. Making the split preserves all its flags and uses the same number of leaves. The new expression is a formula, so its gate cost is exactly the number of remaining leaves minus one.
+
+We have reduced to a family of pairwise vertex-disjoint connected induced graphs, each with an edge. For each graph take “some point in the component AND some line in the component,” and combine by OR. Each connected graph is induced on its vertices because every incident pair inside one component makes its product true. Extra positive flags would also be harmless. The resulting helper covers every originally hot flag and can only lose warm columns, so replacing H preserves the target. If it is zero on all negative columns, simplify the outer formula with the helper set to zero and OR the helper itself at the output. Simplification removes at least one outer gate or leaves a constant. This gives a formula within the 26-gate budget.
+
+For a family using n vertices its gate cost is g = n − 1. The outer raw-leaf budget is again at most 25 − g. We can strengthen the cold-row lower bound by counting isolated vertices of the cold subgraph. At any warm maximal independent set T, every vertex v outside T has a neighbor in T. That flag must report v, so some outer raw leaf must carry v. Any such vertex isolated in the cold subgraph is an additional cost beyond its edge-plus-cover lower bound.
+
+The verifier finds 5,755 connected vertex subsets containing an edge, and enumerates their pairwise disjoint families without repetitions. For g ≥ 7 it discards families that exceed the cold-row bound with these extra vertices, and any warm mask containing all columns through one variable, which already needs 19 leaves. This leaves 420 distinct triples of gate count, hot flags and warm columns. At g = 7 through 13 the numbers of inclusion-minimal warm masks are 21, 84, 21, 21, 84, 0 and 0. Every one exceeds the available raw budget. This excludes every read-once shared formula.
+
+In particular a helper of seven or eight gates with a repeated raw variable would use at most seven or eight distinct vertices respectively. Their best possible cold prices are 20 and 18 respectively, exceeding outer budgets of 18 and 17. Thus every single-helper circuit within 26 gates would require a helper with at least nine gates, a repeated raw variable, and no true singleton. Two or more shared internal gates also remain possible.
 
 ## Verification
 
