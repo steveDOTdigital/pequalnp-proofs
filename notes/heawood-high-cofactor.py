@@ -90,44 +90,52 @@ def symmetry():
 
 
 def cases(formula, lower, budget, seconds, monotone_mode=False):
-    pairs = list(combinations(range(N), 2))
-    zero = [lower[ALL ^ (1 << v)] for v in range(N)]
+    return reader_jobs(N, EDGES, symmetry(), formula, lower, budget, seconds, monotone_mode,
+                       aggregate=N > 10)
+
+
+def reader_jobs(n, edges, group, formula, lower, budget, seconds, monotone_mode=False, aggregate=False):
+    """Generate canonical direct-reader profiles and legal raw first gates."""
+    all_vars = (1 << n) - 1
+    bits = [(1 << a) | (1 << b) for a, b in edges]
+    popcounts = [bin(s).count("1") for s in range(1 << n)]
+    pairs = list(combinations(range(n), 2))
+    zero = [lower[all_vars ^ (1 << v)] for v in range(n)]
     high = []
-    for v in range(N):
-        ns = sum(e ^ (1 << v) for e in BITS if e & (1 << v))
-        core = lower[ALL ^ (1 << v) ^ ns]
-        high.append(core + COUNT[ns] if core else COUNT[ns]-1)
-    group = symmetry()
+    for v in range(n):
+        ns = sum(e ^ (1 << v) for e in bits if e & (1 << v))
+        core = lower[all_vars ^ (1 << v) ^ ns]
+        high.append(core + popcounts[ns] if core else popcounts[ns]-1)
     seen = set()
     def signs(r, cap_zero, cap_high):
         return [z for z in range(r+1) if r+min(2,z) <= cap_zero and r+min(2,r-z) <= cap_high]
     sizes = [[r for r in range(1,min(budget-a,budget-b)+1) if signs(r,budget-a,budget-b)]
              for a,b in zip(zero,high)]
     assert all(not options or max(options)<=4 for options in sizes)
-    truth = [any(s & e == e for e in BITS) for s in range(1 << N)]
-    essential = {(v,w,t):any(truth[s] != truth[s | (1 << v)] for s in range(1 << N)
+    truth = [any(s & e == e for e in bits) for s in range(1 << n)]
+    essential = {(v,w,t):any(truth[s] != truth[s | (1 << v)] for s in range(1 << n)
                              if not s & (1 << v) and ((s >> w) & 1)==t)
-                 for v in range(N) for w in range(N) if w != v for t in (0,1)}
+                 for v in range(n) for w in range(n) if w != v for t in (0,1)}
     for counts in product(*sizes):
         if counts in seen:
             continue
-        seen.update(tuple(counts[g[v]] for v in range(N)) for g in group)
-        if sum(counts) > budget+1 or (sum(counts) == budget+1 and formula[ALL] > budget+1):
+        seen.update(tuple(counts[g[v]] for v in range(n)) for g in group)
+        if sum(counts) > budget+1 or (sum(counts) == budget+1 and formula[all_vars] > budget+1):
             continue
-        if any(sum(counts[v] for v in range(N) if not s & (1 << v)) + k > budget
+        if any(sum(counts[v] for v in range(n) if not s & (1 << v)) + k > budget
                for s,k in enumerate(lower) if k):
             continue
         allowed = set()
         for a,b in pairs:
             for op in ((0,3) if monotone_mode else range(4)):
-                if monotone_mode and op==0 and (a,b) not in EDGES:
+                if monotone_mode and op==0 and (a,b) not in edges:
                     continue
                 if counts[a] <= essential[a,b,op>>1] or counts[b] <= essential[b,a,op&1]:
                     continue
                 if all(any((r-z if bit else z)>0 for z in signs(r,budget-zero[v],budget-high[v]))
                        for v,bit,r in [(a,op&1,counts[a]),(b,op>>1,counts[b])]):
                     allowed.add((op,a,b))
-        stabilizer = [g for g in group if all(counts[v]==counts[g[v]] for v in range(N))]
+        stabilizer = [g for g in group if all(counts[v]==counts[g[v]] for v in range(n))]
         seeds = set(allowed)
         while seeds:
             seed = min(seeds)
@@ -135,12 +143,12 @@ def cases(formula, lower, budget, seconds, monotone_mode=False):
             for g in stabilizer:
                 u,w = g[a],g[b]
                 seeds.discard((op,u,w) if u<w else (((op&1)<<1)|(op>>1),w,u))
-            data = [budget,seconds,len(EDGES),sum((c-1) << (2*v) for v,c in enumerate(counts)),*BITS]
-            for v in range(N):
+            data = [budget,seconds,len(edges),sum((c-1) << (2*v) for v,c in enumerate(counts)),*bits]
+            for v in range(n):
                 data.extend((zero[v],high[v]))
             for a,b in pairs:
-                data.extend((a,b,lower[ALL ^ (1 << a) ^ (1 << b)]))
-            if N > 10:
+                data.extend((a,b,lower[all_vars ^ (1 << a) ^ (1 << b)]))
+            if aggregate:
                 # Try every legal raw gate first in one canonically sorted search.
                 seeds.clear()
                 data.append(len(allowed))
@@ -153,7 +161,7 @@ def cases(formula, lower, budget, seconds, monotone_mode=False):
                 data.extend(gate)
             data.extend(formula)
             data.extend(lower)
-            data.extend((0,) if N > 10 else (1,*seed))
+            data.extend((0,) if aggregate else (1,*seed))
             yield counts, seed, " ".join(map(str,data)) + "\n"
 
 
@@ -233,8 +241,7 @@ def main():
                         f"-DPETERSEN_PAIR_MODE={3 if args.monotone else 2}",str(HERE/"petersen-raw-prefix.cpp"),
                         "-o",str(binary)],check=True)
         control = PROFILE["control"]
-        control.__globals__.update(EDGES=EDGES,sizes=COUNT)
-        check = subprocess.run([str(binary)],input=control(N,args.seconds,formula,lower),
+        check = subprocess.run([str(binary)],input=control(N,args.seconds,formula,lower,edges=EDGES),
                                text=True,capture_output=True,check=True)
         assert check.stdout.splitlines()[-1].startswith("SAT "), check.stdout
         print(f"{upper}-gate positive control passed all {1<<N} truth rows.",flush=True)

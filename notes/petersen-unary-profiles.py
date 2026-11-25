@@ -125,10 +125,11 @@ def problems(n, monotone, budget, seconds, floors, lower):
             yield (encoded,seed), " ".join(map(str,data))+"\n"
 
 
-def control(n, seconds, floors, lower):
+def control(n, seconds, floors, lower, edges=None):
     """Construct and canonically schedule one optimal vertex-cover star formula."""
     all_vars = (1<<n)-1
-    es = sorted((a,b) for a,b in EDGES if b < n)
+    es = sorted((a,b) for a,b in (EDGES if edges is None else edges) if b < n)
+    sizes = [bin(mask).count("1") for mask in range(1<<n)]
     cover = min((mask for mask in range(1<<n) if all((mask>>a | mask>>b)&1 for a,b in es)),
                 key=lambda mask: (sizes[mask], mask))
     stars = {v: [] for v in range(n) if cover >> v & 1}
