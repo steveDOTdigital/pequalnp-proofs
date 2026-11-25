@@ -27,3 +27,11 @@ For a proposed partition, an AND root is impossible if one negative row agrees w
 | **Total** | **4,978** | **2,439** |
 
 The numerical counts come from the search programs. The compact single-file case proof currently checks all 4,978 states using the vector method.
+
+## Stopping a branch with a smaller truth table
+
+Pinning or identifying inputs can turn every live wire into a constant, an input, or its complement. Suppose the resulting target still needs at least b signed binary gates. The original branch then needs at least b gates. If any live wire became constant, it needs at least b+1. The extra gate follows because an equally long projection would have to preserve every live wire, but a minimal nonconstant computation cannot use a constant wire.
+
+[The cofactor theorem](SignedCofactorBound.lean) proves this for any map of truth-table rows. [The masked test and frontier induction](SignedTerminalCuts.lean) allow a certificate to stop at such a branch. They compare each wire only on rows in the slice, and the soundness proof checks that the slice covers every projected row.
+
+For six-input case 12244, a native search found 5,133 frontier states with these tests, including 3,265 that stopped immediately. The other 1,868 states needed successor checks. These counts concern the search. The general masked test and induction have been checked in Lean.
