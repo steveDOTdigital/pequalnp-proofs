@@ -125,7 +125,7 @@ function isStarTree(core, gates, depth, output) {
   return edges.every(([a,b]) => ((centers>>a) ^ (centers>>b)) & 1);
 }
 
-function enumerate(core, limit) {
+function enumerate(core, limit, projection = null) {
   const {edges, rawCount, masks, transforms} = core;
   const width = masks.length;
   const flags = edges.map(([a,b]) => (1<<a) | (1<<b));
@@ -134,7 +134,7 @@ function enumerate(core, limit) {
   for (let r=0; r<1<<rawCount; r++) {
     if (!positive(r) && masks.slice(0,rawCount).every(m => (r&m) || positive(r|m))) rows.push(r);
   }
-  assert(rows.length < 31);
+  assert(rows.length <= 31);
   const nNeg = rows.length-flags.length;
   const yes = (1<<flags.length)-1, no = ((1<<nNeg)-1)<<flags.length;
   const values = masks.map(m => rows.reduce((v,r,i) => v | ((m&r) ? 1<<i : 0), 0));
@@ -191,6 +191,7 @@ function enumerate(core, limit) {
           let duplicate = false;
           for (let i=0; i<out; i++) if (values[i]===v) {duplicate=true; break;}
           if (duplicate) continue;
+          if (projection && !projection.gate(depth,out,isOr,a,b)) continue;
           values[out] = v;
           covers[out] = cover(v);
           const base = other | covers[out];
@@ -200,6 +201,7 @@ function enumerate(core, limit) {
             if ((base | (keep&1 ? covers[a] : 0n) | (keep&2 ? covers[b] : 0n)) !== needed) continue;
             const next = live.filter(w => (w!==a || (keep&1)) && (w!==b || (keep&2)));
             next.push(out);
+            if (projection && !projection.live(depth+1,next)) continue;
             gates[depth] = [isOr,a,b];
             visit(next,depth+1,spare-cost,b,a);
           }
@@ -211,14 +213,18 @@ function enumerate(core, limit) {
   return {states,solutions,starTrees};
 }
 
-console.log("Fano geometries", geometry());
-for (const [shape,helpers,count] of [["theta",0,45],["k4",0,405],["k4",1,0],["k4",2,0],["k4",3,0]]) {
-  const core = makeCore(shape,helpers);
-  const lower = enumerate(core,core.optimum-1);
-  assert.equal(lower.solutions,0);
-  if (shape==="k4") assert.equal(lower.states,[169899,105666,35706,8409][helpers]);
-  const result = enumerate(core,core.optimum);
-  assert.equal(result.solutions,count);
-  assert.equal(result.starTrees,count);
-  console.log(shape,helpers,"helpers",result);
+module.exports = {enumerate, permutations};
+
+if (require.main === module) {
+  console.log("Fano geometries", geometry());
+  for (const [shape,helpers,count] of [["theta",0,45],["k4",0,405],["k4",1,0],["k4",2,0],["k4",3,0]]) {
+    const core = makeCore(shape,helpers);
+    const lower = enumerate(core,core.optimum-1);
+    assert.equal(lower.solutions,0);
+    if (shape==="k4") assert.equal(lower.states,[169899,105666,35706,8409][helpers]);
+    const result = enumerate(core,core.optimum);
+    assert.equal(result.solutions,count);
+    assert.equal(result.starTrees,count);
+    console.log(shape,helpers,"helpers",result);
+  }
 }
