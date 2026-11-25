@@ -13,7 +13,8 @@ PROFILE = runpy.run_path(str(HERE / "petersen-unary-profiles.py"))
 FANO = runpy.run_path(str(HERE / "heawood-signed-formulas.py"))
 def configure(mask):
     global V, EDGES, N, ALL, BITS, COUNT
-    V = FANO["vertices"](mask)
+    kept = set(FANO["vertices"](mask))
+    V = sorted({v for e in FANO["EDGES"] if set(e)<=kept for v in e})
     EDGES = [(V.index(a),V.index(b)) for a,b in FANO["EDGES"] if a in V and b in V]
     N = len(V)
     ALL = (1 << N)-1
@@ -21,7 +22,7 @@ def configure(mask):
     COUNT = [bin(m).count("1") for m in range(1 << N)]
 
 
-def floors(temp, checked_order=0, monotone_mode=False, adjacent_floor=0):
+def floors(temp, checked_order=0, monotone_mode=False, adjacent_floor=0, single_floor=0):
     # The existing signed gate-elimination recurrence supplies each induced floor.
     code = '''#define main mcgee_main
 #include "cubic-pair-restrictions.cpp"
@@ -36,6 +37,7 @@ int main(){
   if (PROVED>0) for(Mask s=1;s<(1u<<WIDTH);++s)
     if(count(s)<=PROVED && b.active(s)==s)base.memo[s]=b.memo[s]=b.upper(s);
   for (Mask s : std::vector<Mask>{ADJACENT}) b.memo[s]=ADJFLOOR;
+  if(WIDTH==14 && SINGLE>0) for(int v=0;v<14;++v) b.memo[16383^(1u<<v)]=SINGLE;
   for(Mask s=0;s<(1<<WIDTH);++s) std::cout<<b.solve(s)<<" ";
 }
 '''.replace("WIDTH",str(N)).replace("PROVED",str(checked_order)).replace("MONOTONE",str(int(monotone_mode))).replace("PAIRS", ",".join("{%d,%d}" % e for e in EDGES))
@@ -45,7 +47,7 @@ int main(){
             image = {g[v] for v in FANO["vertices"](8175)}
             if image.issubset(V):
                 adjacent.add(sum(1<<V.index(v) for v in image))
-    code = code.replace("ADJACENT", ",".join(map(str,sorted(adjacent)))).replace("ADJFLOOR",str(adjacent_floor))
+    code = code.replace("ADJACENT", ",".join(map(str,sorted(adjacent)))).replace("ADJFLOOR",str(adjacent_floor)).replace("SINGLE",str(single_floor))
     obj = Path(temp) / "bounds"
     subprocess.run(["c++", "-O3", "-std=c++17", "-I", str(HERE), "-x", "c++",
                     "-", "-o", str(obj)], input=code, text=True, check=True)
@@ -200,11 +202,27 @@ def main():
     args = ap.parse_args()
     if args.census:
         return census()
+    if not 0 <= args.mask < (1<<14) or args.seconds<1 or args.workers<1:
+        ap.error("use a 14-bit vertex mask and positive time and worker limits")
     configure(args.mask)
-    with tempfile.TemporaryDirectory(prefix="pnp-k4-subdivision-") as temp:
-        formula, lower, _, leaves = floors(temp,11 if N>11 else 10 if N==11 else 0,args.monotone)
+    if not EDGES:
+        print("The induced graph has no edges; constant false uses zero gates.")
+        return
+    if args.counts and any(len(r)!=N or any(c not in "1234" for c in r) for r in args.counts):
+        ap.error("each count vector needs one digit from 1 to 4 per active input")
+    scratch = tempfile.TemporaryDirectory(prefix="pnp-heawood-subgraph-")
+    with scratch as temp:
+        checked_order = 11 if N>11 else 10 if N==11 else 0
+        adjacent_floor = 20 if args.monotone and N>12 else 0
+        single_floor = 21 if N==14 else 0
+        formula, lower, _, leaves = floors(temp,checked_order,args.monotone,adjacent_floor,single_floor)
         upper = leaves[ALL]-1
         budgets = range(lower[ALL],upper) if args.budget is None else [args.budget]
+        if args.budget is not None and args.budget < lower[ALL]:
+            print(f"Mask {args.mask}: the restriction floor {lower[ALL]} already excludes budget {args.budget}.")
+            scratch.cleanup()
+            assert not Path(temp).exists()
+            return
         assert all(lower[ALL] <= b < upper for b in budgets)
         jobs = (job for budget in budgets for job in cases(formula,lower,budget,args.seconds,args.monotone)
                 if not args.counts or "".join(map(str,job[0])) in args.counts)
@@ -248,6 +266,8 @@ def main():
                         total += nodes
                         if verdict != "UNSAT":
                             print(verdict,counts,seed,nodes,flush=True)
+        if not job_count and args.counts:
+            print("No requested counts survived the numerical tests and symmetry representative selection.")
         print(dict(results),"prefixes",total,flush=True)
     assert not Path(temp).exists()
     if results.get("UNSAT",0) != job_count:

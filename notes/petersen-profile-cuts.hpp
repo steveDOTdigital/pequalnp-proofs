@@ -5,7 +5,7 @@
 class PetersenProfileCuts {
     using RowPairs = std::bitset<3072>;
     std::array<Table,n> raw{};
-    Table target{};
+    Table target{}, edgeRows{};
     std::array<int,n> quota{};
     std::array<Table,maxWires> zeroOn{};
     std::array<std::array<Table,5>,maxWires> slackBits{};
@@ -38,6 +38,8 @@ public:
     bool initialize(int budget, const std::array<int,n>& counts, const Table& goal,
                     const std::array<Table,maxWires>& wires, const std::array<int,1<<n>& lower) {
         target = goal;
+        if (monotone) for (int row=0;row<(1<<n);++row)
+            if (__builtin_popcount(row)==2 && target.test(row)) edgeRows.set(row);
         quota = counts;
         for (int v = 0; v < n; ++v) raw[v] = wires[v];
         for (int active = 0; active < (1<<n); ++active) {
@@ -153,7 +155,9 @@ public:
     bool withinZeroBudgets(int wire, int a, int b, const Table& value, WireSet pendingBefore,
                            const std::array<Table,maxWires>& wires) {
         const int depth = wire - n;
-        const Table zero = zeroRestrictions(value);
+        // A monotone wire false on every retained edge can be replaced by
+        // false: all negative values decrease and every positive edge is preserved.
+        const Table zero = zeroRestrictions(monotone ? value & edgeRows : value);
         zeroOn[wire] = zero;
         auto resource = [&](int i) -> Table {
             if (i < n) return ~raw[i];
@@ -170,7 +174,11 @@ public:
         if ((noneLeft & forced).any() || (atMostOne & twice).any()) return false;
         Table dropped = zero;
         for (int h = 0; h < wire; ++h) {
-            dropped |= zeroRestrictions(value ^ wires[h]);
+            // On induced monotone functions we may also bypass a wire by one
+            // which is higher on edges and lower on independent assignments.
+            const Table conflict = monotone ? ((value & ~wires[h] & edgeRows) |
+                (~value & wires[h] & ~target)) : (value ^ wires[h]);
+            dropped |= zeroRestrictions(conflict);
             if ((noneLeft & dropped & ~any & target).any()) return false;
         }
         // One or two units of slack may disappear. All 1,024 arithmetic

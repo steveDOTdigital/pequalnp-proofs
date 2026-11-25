@@ -25,6 +25,17 @@ theorem upper : PEqualNP.MetaComplexity.HasCircuitSize 14 (fun x : Fin 14 → Bo
 def target (x : Fin 14 → Bool) : Bool :=
   (x 0 && x 7) || (x 0 && x 8) || (x 0 && x 10) || (x 1 && x 7) || (x 1 && x 9) || (x 1 && x 13) || (x 2 && x 8) || (x 2 && x 12) || (x 2 && x 13) || (x 3 && x 7) || (x 3 && x 11) || (x 3 && x 12) || (x 4 && x 10) || (x 4 && x 11) || (x 4 && x 13) || (x 5 && x 9) || (x 5 && x 10) || (x 5 && x 12) || (x 6 && x 8) || (x 6 && x 9) || (x 6 && x 11)
 
+def bits (xs : List (Fin 14)) (i : Fin 14) := decide (i ∈ xs)
+
+set_option maxHeartbeats 500000 in
+/-- Every other raw vertex can change the target on either slice of the
+representative nonincident raw-pair OR. The witnesses use at most three bits. -/
+theorem essentialAfterFirstOr : ∀ c : Fin 14, c ≠ 0 → c ≠ 9 → ∀ t : Bool,
+    ∃ d : Fin 14, let base : List (Fin 14) := if t then [0,d] else [d]
+      bits base c = false ∧ (bits base 0 || bits base 9) = t ∧
+      target (bits base) = false ∧ target (bits (c::base)) = true := by
+  decide +kernel
+
 def signedValue (p : List (ℕ × ℕ)) (o : ℕ) (x : Fin 14 → Bool) : Bool :=
   (p.foldl (fun w ij => let z := w.getD ij.1 false && w.getD ij.2 false
     w ++ [z,!z]) ([false,true] ++ List.ofFn x ++ (List.ofFn x).map Bool.not)).getD o false

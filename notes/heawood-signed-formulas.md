@@ -2,7 +2,7 @@
 
 Independent research on PEqualNP desk case L-meta-9754 by steveDOTdigital.
 
-A formula for the posted function needs **28 literal occurrences and 27 binary gates**, even if every wire can be negated for free. Seven point stars attain the bound. Thus a circuit of at most 26 ordinary gates must reuse a signal computed by a binary gate after unary operations are absorbed. Whether such a circuit exists remains open.
+A formula for the posted function needs **28 literal occurrences and 27 binary gates**, even if every wire can be negated for free. Seven point stars attain the bound. Thus a circuit of at most 26 ordinary gates must reuse a signal computed by a binary gate after unary operations are absorbed. The unrestricted ordinary circuit minimum is between 24 and 27.
 
 [Reproduce the finite proof](heawood-signed-formulas.py) · [Lean checks of the comparison argument and the exact 27-gate upper bound](HeawoodSignedFormulas.lean)
 
@@ -40,7 +40,7 @@ For ordinary circuits, suppose exactly one binary gate is shared, its two effect
 
 ## Induced subgraphs and circuits with unrestricted sharing
 
-For **every nonempty induced subgraph** of this Fano incidence graph, signed formulas need exactly `edges + minimum vertex cover − 1` binary gates. With up to eleven active vertices the same equality holds even for circuits with arbitrary sharing and free wire negation. On the full graph, at least **22 binary gates with free signs** and at least **23 ordinary AND/OR/NOT gates** are necessary. The star construction uses 27 in either model.
+For **every nonempty induced subgraph** of this Fano incidence graph, signed formulas need exactly `edges + minimum vertex cover − 1` binary gates. With up to eleven active vertices the same equality holds even for circuits with arbitrary sharing and free wire negation. On the full graph, at least **23 binary gates with free signs** and at least **24 ordinary AND/OR/NOT gates** are necessary. The star construction uses 27 in either model.
 
 The [circuit verifier](heawood-high-cofactor.py) first applies the [signed gate elimination recurrence](cubic-pair-restrictions.cpp) on every induced set. It removes isolates, evaluates single- and double-vertex restrictions, and tests each possible first binary gate on distinct raw inputs. A high pin contributes an independent OR of its neighbors to the graph on the remaining non-neighbors. Each independent alarm costs one additional gate above a nonconstant residual, by successively pinning it low. See the [signed restriction argument](petersen-raw-bound.md) and the [tree-component argument](cubic-formula-leaves.md).
 
@@ -88,3 +88,25 @@ done
 python3 notes/heawood-high-cofactor.py --mask 8175 --budget 19 --monotone --seconds 60
 python3 notes/heawood-high-cofactor.py --census
 ```
+
+## Excluding ordinary size 23
+
+Every ordinary circuit for the full function needs **at least 24 gates**. First, the signed 22-gate case has a two-gate obstruction. In a live minimum signed circuit normalize both input signs at each binary gate and give every stored signal its value-zero orientation on the empty input. Discard constants, unneeded gates and duplicate signals up to sign. If a gate reads both an earlier binary gate and one of that gate's operands, the composition depends on just the two original operands and simplifies to a constant, a signed literal or a single signed AND. Use a normal representative that avoids this pattern.
+
+At budget 22 the zero pin costs at least 20, so a raw vertex has at most two readers. A reader controlled by zero on a twice-read vertex would also eliminate a subsequent gate on the zero pin. That subsequent gate is distinct from both direct readers by normalization. The zero pin would save three gates, which is impossible. Thus both reads of every repeated vertex have controlling value one, and a gate on two raw inputs must be an OR up to polarity. Both inputs require separate bypasses. Each vertex remains essential with any other vertex pinned to either value, by degree three and the absence of a four-cycle.
+
+Simultaneously setting two same-shore vertices low costs at least 19, and so does setting an incident point-line pair low. Four direct raw reads on either pair would leave at most 18 gates. Thus the repeated set has at most one vertex on each shore and, if both are present, they are nonincident. The first gate requires exactly such a pair. There is no second distinct raw-pair gate, as it would duplicate their OR. The next binary gate therefore reads that first signal and a third raw variable c occurring only once. On either slice of the OR, c remains essential. On the zero slice activate a neighbor of c outside the first pair. On the one slice activate the first point a. If c is adjacent to a, toggling c alone suffices. Otherwise add a neighbor of c that is nonadjacent to a, which exists by the square-free geometry. In both cases some input changes the target when c is flipped. On the controlling slice of the first signal the second gate would erase c completely. Lean verifies the slice witnesses for the representative nonincident pair (0,9) in `essentialAfterFirstOr`. The signed prefix checker independently exhausted the single surviving reader profile in two visited prefixes.
+
+A stronger single-vertex deletion bound gives another proof of the signed result. An unrestricted signed search on the 13-vertex deletion, mask 8191, excludes 20 gates in three reader profiles and 268 visited prefixes. Thus fixing any full-graph vertex to zero leaves a signed function costing at least 21. Both endpoints of the first gate must have another reader, so this proves the full signed lower bound of 23 again. A signed search also excludes 18 gates after deleting a nonincident point-line pair (mask 8127), leaving a lower bound of 19 for that restriction.
+
+Finally, the monotone search at full budget 23 uses the verified 21-gate single low pin and the 20-gate adjacent double low pin. Every repeated raw input occurs exactly twice and its readers are OR gates. Two adjacent inputs cannot both repeat, by the double low pin. Up to symmetry 13 reader profiles survive the initial constraints. The search excludes all 13 on the full fourteen-variable function. The explicit 27-gate star control is independently evaluated on all 16,384 inputs. Thus a monotone circuit costs at least 24. For a circuit using any NOT, the 23 signed binary gates already require at least 24 ordinary gates. Apply the Lean transfer `ordinaryLower` with s = 23. The desk asks to exclude sizes through 26.
+
+The additional search commands are:
+
+```sh
+python3 notes/heawood-high-cofactor.py --mask 8191 --budget 20 --seconds 60
+python3 notes/heawood-high-cofactor.py --mask 8127 --budget 18 --seconds 60
+python3 notes/heawood-high-cofactor.py --mask 16383 --budget 23 --monotone --seconds 120
+```
+
+The monotone checker may bypass a wire on a zero restriction if an earlier wire is at least as high on every retained flag and at most as high on every independent input. A wire that misses all retained flags can be replaced by false. These replacements preserve both inequalities at every subsequent gate, so the same gate-deletion accounting applies.
