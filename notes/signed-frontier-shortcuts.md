@@ -41,3 +41,11 @@ For six-input case 12244, a native search found 5,133 frontier states with these
 A branch can also stop when some projected wires are genuine intermediate results. If a prefix of h binary gates supplies all the projected wires, and the restricted function needs n gates from its inputs, the suffix needs at least n−h gates. A live signal that becomes constant gives one more gate of savings on the projection. Different wires can share the same prefix gate.
 
 [The Lean proof](SignedCofactorPrefixes.lean) composes a suffix with the supplied prefix, proves that mapping rows commutes with each gate, and constructs a masked rejection test. A native search for case 12244 then visited 401 states. Of these, 253 stopped with inputs alone, 85 used one supplied gate and 8 used two. The other 55 required successor checks. For case 12360 the corresponding counts were 320 states, 240 input-only cuts, 43 one-gate cuts, 2 two-gate cuts and 35 successor checks.
+
+## Counting the signals made constant
+
+If a row restriction makes `z` distinct live signals constant, a projected signed output cone of `k` gates has a realization using at most `k−z` gates, provided its output is nonconstant. In the backwards traversal each retained gate has two nonconstant operands. A skipped gate can add at most one to the number of constant live inputs. When both its operands become constant, its output was constant as well. [Lean proof](SignedConstantCount.lean)
+
+A lower bound of `n` on the restricted function therefore rules out a suffix of budget `k` when `k+h < n+z`, where `h` gates suffice to supply the restricted live signals. The executable test counts distinct original wires. On the six-input case 12262, with the same minor bounds and a budget of eleven signed gates, counting all constant wires reduced 33,026 representative states to 2,366. Only 26 of the latter needed expansion. [Counted prefix certificate](SignedCountedPrefixes.lean)
+
+A separate closure theorem can apply a checked lower bound directly to a successor before storing its wire list. Any suggested symmetry must fix the target, and the suggested certificate is tested on the actual transformed wires. [Guarded closure in Lean](SignedGuardedClosure.lean)
