@@ -1,4 +1,4 @@
-"""Reproduce the nine-input ordinary circuit minimum for L-meta-11022/11023."""
+"""Reproduce the signed and ordinary circuit minima for the listed nine-vertex desk cases."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from itertools import permutations, product
@@ -11,7 +11,11 @@ HERE = Path(__file__).resolve().parent
 LIB = runpy.run_path(str(HERE / "heawood-high-cofactor.py"))
 EDGES = [(0, 4), (0, 5), (1, 5), (2, 6), (3, 6), (0, 7),
          (2, 7), (4, 7), (1, 8), (3, 8), (5, 8), (6, 8)]
-BITS = [(1 << a) | (1 << b) for a, b in EDGES]
+CASES = {
+    "11023": (EDGES, 16),
+    "10831": ([(0, 4), (1, 5), (0, 6), (1, 6), (2, 6), (0, 7),
+               (3, 7), (4, 7), (2, 8), (3, 8), (5, 8)], 15),
+}
 FULL = (1 << 9) - 1
 
 
@@ -42,13 +46,15 @@ def canonical(n, edges):
     return (n, best), group
 
 
-def run(seconds, workers, monotone_check):
+def run(seconds, workers, monotone_check, case="11023"):
+    graph_edges, expected = CASES[case]
+    edge_masks = [(1 << a) | (1 << b) for a, b in graph_edges]
     # The initial lower bound uses essential inputs alone. All stronger proper
     # subgraph bounds below have been proved earlier in this same run.
     active = []
     for mask in range(FULL + 1):
         used = 0
-        for edge in BITS:
+        for edge in edge_masks:
             if mask & edge == edge:
                 used |= edge
         active.append(used)
@@ -71,7 +77,7 @@ def run(seconds, workers, monotone_check):
         for mask in sorted(set(active) - {0}, key=lambda s: (len(vertices(s)), s)):
             verts = vertices(mask)
             n = len(verts)
-            edges = [(verts.index(a), verts.index(b)) for a, b in EDGES if a in verts and b in verts]
+            edges = [(verts.index(a), verts.index(b)) for a, b in graph_edges if a in verts and b in verts]
             key, group = canonical(n, edges)
             if key in solved:
                 known[mask] = solved[key]
@@ -134,23 +140,24 @@ def run(seconds, workers, monotone_check):
                     totals[0] += trial_count
                     totals[1] += node_count
             if mask == FULL:
-                assert floor == upper == 16
+                assert floor == upper == expected
             else:
                 assert floor == upper
                 solved[key] = floor
                 known[mask] = floor
         print(f"Proper induced graphs: {len(solved)} isomorphism types; "
               f"{totals[0]} searches, {totals[1]} prefixes.")
-        print("Signed and ordinary minimum 16.")
+        print(f"Signed and ordinary minimum {expected}.")
     assert not Path(scratch).exists()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", choices=sorted(CASES), default="11023")
     parser.add_argument("--seconds", type=int, default=90, help="time limit for a single profile")
     parser.add_argument("--workers", type=int, default=2)
-    parser.add_argument("--monotone-check", action="store_true", help="also replay the AND/OR exclusion at 15")
+    parser.add_argument("--monotone-check", action="store_true", help="also replay the AND/OR exclusion at the last budget")
     args = parser.parse_args()
     if args.seconds < 1 or args.workers < 1:
         parser.error("time and worker limits must be positive")
-    run(args.seconds, args.workers, args.monotone_check)
+    run(args.seconds, args.workers, args.monotone_check, args.case)
