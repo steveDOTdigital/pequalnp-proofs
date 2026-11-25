@@ -51,19 +51,24 @@ def orbits(images):
         left.difference_update(group)
     return groups
 
-def price(support,allow_extra=False,refine=False,override=None,pair_ref=None):
+def price(support,allow_extra=False,refine=False,override=None,pair_ref=None,geometry=None):
+    # An alternate bank of independent tests uses the same local certificate.
+    if geometry is None:
+        column_bank, inverse_columns, members, membership = columns, column_index, col_vertices, tape
+    else:
+        column_bank, inverse_columns, members, membership = geometry
     vertices = [v for v in range(26) if support>>v&1]
     stabilizer=[g for g in perms if sum(1<<g[v] for v in vertices)==support]
     if override is not None:stabilizer=override[0]
     flags=orbits([[edge_index[g[a],g[b]] for a,b in edges] for g in stabilizer])
-    cols=orbits([[column_index[sum(1<<g[v] for v in vs)] for vs in col_vertices] for g in stabilizer])
+    cols=orbits([[inverse_columns[sum(1<<g[v] for v in vs)] for vs in members] for g in stabilizer])
     hot=set(range(52)) if allow_extra else {i for i,(a,b) in enumerate(edges) if a in vertices or b in vertices}
-    warm=sum(1<<t for t,c in enumerate(columns) if c&support)
+    warm=sum(1<<t for t,c in enumerate(column_bank) if c&support)
     if override is not None:hot,warm=override[1:3]
     full=(1<<52)-1
     hotmask=sum(1<<e for e in hot)
     required=(override[3] if override is not None and len(override)>3 else
-              [full if warm>>t&1 else full & ~hotmask for t in range(len(columns))])
+              [full if warm>>t&1 else full & ~hotmask for t in range(len(column_bank))])
     col_required=[sum(1<<t for t,r in enumerate(required) if r>>e&1) for e in range(52)]
     eligible=[]
     for i,(p,l) in enumerate(edges):
@@ -71,7 +76,7 @@ def price(support,allow_extra=False,refine=False,override=None,pair_ref=None):
         for j in incident[l]:
             for k in incident[p]:
                 if i==j or i==k:continue
-                witnesses=tape[edges[j][0]] & tape[edges[k][1]]
+                witnesses=membership[edges[j][0]] & membership[edges[k][1]]
                 witnesses &= col_required[j] & col_required[k]
                 if not witnesses:good=False
         eligible.append(good)
@@ -96,7 +101,7 @@ def price(support,allow_extra=False,refine=False,override=None,pair_ref=None):
             key=tuple(sorted(relation(h) for h in helpers))
             parts.setdefault(key,set()).add(e)
         buckets={}
-        for t,c in enumerate(columns):
+        for t,c in enumerate(column_bank):
             key=(bin(c&8191).count('1'),tuple(sorted(bin(c&h).count('1') for h in helpers)))
             buckets.setdefault(key,[]).append(t)
         small=list(buckets.values());states=list(parts.values())
@@ -110,7 +115,7 @@ def price(support,allow_extra=False,refine=False,override=None,pair_ref=None):
     for v in range(26):
         neighbors=[b if a==v else a for a,b in (edges[i] for i in incident[v])]
         forced=[]; charges=[]
-        for t,c in enumerate(columns):
+        for t,c in enumerate(column_bank):
             charge=0 if c>>v&1 else sum(1<<j for j,e in enumerate(incident[v]) if required[t]>>e&1)
             forced.append(charge & sum(1<<j for j,b in enumerate(neighbors) if c>>b&1))
             charges.append(charge)
@@ -141,7 +146,7 @@ def price(support,allow_extra=False,refine=False,override=None,pair_ref=None):
     weights=np.rint(np.maximum(0,result.x[:-26])*scale).astype(np.int64)
     # Each local coefficient counts at most four reports per column. A global
     # capacity counts at most 52. Check the worst integer dot products before use.
-    bound=len(weights)*int(max(weights,default=0))*len(columns)
+    bound=len(weights)*int(max(weights,default=0))*len(column_bank)
     assert 26*(4*scale+4*bound)+52*bound < 2**63
     lower=sum(int(np.min(terms[:,-1]*scale + terms[:,:-1]@weights)) for terms in local)
     lower-=int(objective[:-26]@weights)

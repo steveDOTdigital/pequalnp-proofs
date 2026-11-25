@@ -1,0 +1,44 @@
+# Exact price of a free OR on the quadrangle promise
+
+L-meta-2343 gives a fan-in-two monotone circuit one extra input, the OR of at most two selected raw wires. It must accept all 52 flags of the order-three plane and reject the 234 quadrangle inputs. The target is 63 **paid** gates. We prove the following exact formula costs and a circuit lower bound permitting several kinds of sharing. The unrestricted circuit case remains open.
+
+| Free OR of distinct raw inputs | Minimum paid gates in a formula | Raw leaves required outside the free OR |
+| --- | ---: | ---: |
+| Two points | 63 | 63 |
+| Two lines | 63 | 63 |
+| Incident point and line | 64 | at least 64 |
+| Nonincident point and line | 64 | at least 65 |
+
+A formula may read the free input any number of times. Every 63-gate formula uses it **exactly once**, as a two-leaf OR inside an ordinary optimal star formula. An empty list, a repeated index, a single in-range index or an out-of-range index cannot lower the 64-gate raw-formula cost. Such a helper is a projection or a constant unless the list contains two distinct in-range inputs.
+
+The [Lean proof](QuadrangleFreeOr.lean) prepends the free OR to the project's actual gate list, proves the size and semantics on every input, and verifies strict backward references after filtering invalid operands. In the opposite direction the file constructs legal 63-gate circuits for both same-shore representatives and a 64-gate circuit for every free input. A symbolic simulation proves that they compute precisely the 52-edge function on the full Boolean cube, including the desk's tests. The lower bounds use the [integer verifier](quadrangle-free-pair.py) and the [formula equality theorem](quadrangle-partition.md).
+
+## Counting paid leaves
+
+For each paid formula leaf, route a positive flag and a negative quadrangle down the tree by the first true child at OR and the first false child at AND. The rows and columns reaching a leaf form a rectangle. If none of the available ORs separates the two inputs, a raw leaf must report one endpoint of the flag. With helpers $H_1,\ldots,H_h$, let $F_i$ be the flags meeting the variables of $H_i$. At column $T$ the compulsory rows are precisely the flags outside the union of $F_i$ over helpers disjoint from $T$.
+
+On these compulsory cells apply the [weighted rectangle bound](generic-helper-price.md#pricing-the-leaves-outside-the-shared-gates). The new calculation uses exactly the desk's 234 quadrangles, without imposing dual quadrangle tests. It enumerates each local row family of up to three raw leaves. Four singleton masks supply the relaxation for larger families. At each eligible flag, opposite-end domination is forbidden by a checked negative column that forces its two witness reports. Nonnegative integer weights charge compulsory reports in rectangular regions and eligible dominations. Their global capacities are subtracted from the sum of the 26 local minima. SciPy proposes the weights and the shared verifier recomputes every lower bound in integer arithmetic. Projectivities preserve the flag tests and the quadrangle test family. Points and lines remain distinct roles.
+
+For a single pair the four price bounds are in the table. A genuine use of the helper is an extra leaf. An entirely raw formula needs at least 65 leaves by the earlier theorem. Thus a 63-gate formula has 64 leaves, takes a same-shore pair, and uses it exactly once. Unfolding that pair adds one gate and yields a minimum 64-gate raw formula. Those are precisely the thirteen point stars or the thirteen line stars joined by OR. Conversely any two same-shore variables occur together in a unique star of the opposite shore. Grouping them first and using the supplied OR saves one gate.
+
+## Two free pairs
+
+With any two distinct free pair ORs, a formula costs at least 62 gates. At 62 the exact criterion is that **both pairs can occur as distinct two-leaf subtrees of one minimum raw star formula**. Equivalently both pairs consist of points, or both consist of lines. If they belong to the same star they must be disjoint. Pairs in different stars may share a raw variable. Every optimum of size 62 uses each free OR exactly once. If the criterion fails and at least one pair is same-shore, the exact minimum is 63.
+
+To see this, first suppose both pairs are used at least twice. The integer bound is at least 60 raw leaves in all 59 projectivity classes covering all 52,650 labeled unordered choices of pairs. At least four helper leaves bring the total to 64, excluding 62 gates. If a pair is unused, the single-pair result applies. If it is read once, unfold it. At 62 this must yield a 63-gate single-pair optimum, so the other pair also occurs once. The resulting full raw formula is an optimal star formula and both occurrences are disjoint subtrees. This proves the criterion, including the case of less than 62 gates.
+
+## Shared paid gates
+
+A counterexample to L-meta-2343 must use more than a paid formula. It must also go beyond a sole shared paid gate that directly reads at most two of the 27 inputs. For two independent shared pair ORs, first pay one gate for the free input. A hypothetical 62-paid-gate circuit now has at most 63 total gates. If both ORs are genuinely shared, remove their two gates and cut their outputs into separate leaves in the remaining formula. At least four helper references leave at most 58 raw leaves, below 60. If only one is shared, the one-pair price applies to its cut and rules out 63 total gates.
+
+If the second OR uses the free pair and a third raw variable, its support is a triple containing that pair. When both are shared, at least one other use of the pair and two uses of the triple leave at most 59 raw leaves. All 18 projectivity classes certify at least 60. If the pair is used only to construct the triple, the sole triple costs two gates and requires at least 62 outer raw leaves, while the budget permits at most 60. The four-variable raw-disjunction calculation gives at least 61 raw leaves in its 25 classes.
+
+A shared AND of raw variables either hits no flag or is precisely an incident pair and rejects all quadrangles. An AND of a raw variable with the free pair can be shrunk to the star consisting of its actual hot flags, or to a projection when the variable belongs to the pair. This preserves positive evaluations and only decreases negative evaluations. A nonempty shrunk term rejects every negative. Disable its old uses and OR the term into the final output. At least one reader simplifies, paying for the final OR. The star uses no extra gates: two surviving neighbors use the existing pair OR, one neighbor uses a single AND, and the zero case simplifies. Thus the only remaining shared signal can be treated by the one-pair argument.
+
+The 63-paid-gate lower bound also holds if, after prepending the free gate, every shared internal signal agrees on the tests with a monotone function of at most two members of a common set of four raw inputs. Replace shared results by their raw constant, projection, pair AND or pair OR. Replacing an internal gate by a function of raw inputs introduces no new readers of a formerly private gate. Eliminate private constants and shared safe AND terms as above, and merge duplicate pair ORs. For $h$ remaining distinct shared pairs there are at least $2h$ outer references, so at most $64-3h$ raw leaves fit in 63 total gates. The minimum certified raw-leaf counts for $h=3,4,5,6$ are respectively 56, 54, 52 and 49, covering 176, 163, 74 and 25 projectivity classes. The budgets are 55, 52, 49 and 46. This calculation allows arbitrary fanout of each shared result.
+
+## Constructive search
+
+The [two-edit search](generic-star-search.cpp) starts separately from the sharp 63-paid-gate point-pair and line-pair circuits. For each deleted gate it permits redirecting its output to any wire giving an acyclic intermediate program, including a change of output wire. One further surviving gate may then be replaced by either operation on any two non-descendant wires. The input tape includes the free OR. All 286 test values are checked. For each starting circuit there were 5,118 acyclic bypasses. The point-pair and line-pair runs tested 428,039,528 and 428,020,380 replacement gates respectively. Neither produced a 62-paid-gate witness. These are local searches around two specified circuits.
+
+Run `python3 notes/quadrangle-free-pair.py 1`, `2 --tight`, `--nested`, `--four --tight` and `--disjunctions` with the same script and with NumPy and SciPy installed. The exhaustive tight two-pair histogram, in increasing lower bound from 60 to 63, is 15, 18, 23 and 3 classes. Compile the C++ source with `c++ -O2 -std=c++17` and run it with `--free-points` and `--free-lines`. Verify the formal component with `lake env lean ../notes/QuadrangleFreeOr.lean` from the repository's Lean directory.
