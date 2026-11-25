@@ -136,27 +136,36 @@ theorem ordinary (C : Circuit) (ao : PEqualNP.TopForm.IsAO2 14 C) (x : List Bool
     truthCost ((C.gates.foldl boolStep x).getD C.output false)
   rw [← h,boolLookup]
 
+theorem gateCostCases (op : GateOp) (ys : List ℕ) :
+    gateCost op ys = GateOp.casesOn (motive := fun _ => ℕ) op
+      (ys.foldl (fun a b => min 2 (a+b)) 0) (ys.foldl min 2) 2 (fun _ => 2) 2 := by
+  cases op <;> rfl
+
 open PEqualNP.TopForm in
 theorem ordinaryChild : ∀ (C : Circuit), IsAO2 14 C → ∀ x : List Bool,
       (fun (xs : List ℕ) => (C.gates.foldl (fun w g =>
         let ys := g.inputs.map fun i => w.getD i 2
-        w ++ [match g.op with
-          | .or => ys.foldl min 2
-          | .and => ys.foldl (fun a b => min 2 (a+b)) 0
-          | _ => 2]) xs).getD C.output 2) (x.map fun b => if b then 0 else 2) =
+        w ++ [GateOp.casesOn (motive := fun _ => ℕ) g.op
+          (ys.foldl (fun a b => min 2 (a+b)) 0) (ys.foldl min 2) 2 (fun _ => 2) 2]) xs).getD C.output 2) (x.map fun (b : Bool) => if b then (0 : ℕ) else 2) =
         (if C.eval x then 0 else 2) := by
   intro C ao x
-  exact ordinary C ao x
+  have h := ordinary C ao x
+  have e : truthCost = fun b : Bool => if b then 0 else 2 := by rfl
+  rw [e] at h
+  simpa only [run,gateCostCases] using h
 
 theorem linearChild : ∀ (C : Circuit) (side : ℕ → Bool) (x : List Bool),
       (fun (xs : List ℕ) => (C.gates.foldl (fun w g =>
         let ys := g.inputs.map fun i => w.getD i 2
-        w ++ [match g.op with
-          | .or => ys.foldl min 2
-          | .and => ys.foldl (fun a b => min 2 (a+b)) 0
-          | _ => 2]) xs).getD C.output 2) (x.zipIdx.map fun (b,i) => if b then (if side i then 1 else 0) else 2) = 1 →
+        w ++ [GateOp.casesOn (motive := fun _ => ℕ) g.op
+          (ys.foldl (fun a b => min 2 (a+b)) 0) (ys.foldl min 2) 2 (fun _ => 2) 2]) xs).getD C.output 2) (x.zipIdx.map fun (u : Bool × ℕ) => if u.1 then (if side u.2 then (1 : ℕ) else 0) else 2) = 1 →
         ((PEqualNP.ReadK.linearParts C side x).getD C.output (false,false)).2 = true := by
   intro C side x h
-  exact degreeOne C side x C.output h
+  apply degreeOne C side x C.output
+  have eq : seed side x = x.zipIdx.map (fun u => if u.1 then (if side u.2 then 1 else 0) else 2) := by
+    apply List.map_congr_left
+    rintro ⟨b,i⟩ _
+    rfl
+  simpa only [run,gateCostCases,eq] using h
 
 end FanoCosts6176
