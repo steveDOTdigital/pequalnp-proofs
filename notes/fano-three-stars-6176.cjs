@@ -125,7 +125,7 @@ function isStarTree(core, gates, depth, output) {
   return edges.every(([a,b]) => ((centers>>a) ^ (centers>>b)) & 1);
 }
 
-function enumerate(core, limit, projection = null) {
+function enumerate(core, limit, projection = null, onSolution = null) {
   const {edges, rawCount, masks, transforms} = core;
   const width = masks.length;
   const flags = edges.map(([a,b]) => (1<<a) | (1<<b));
@@ -167,6 +167,7 @@ function enumerate(core, limit, projection = null) {
       if (values[out]===yes) {
         assert.equal(depth,core.optimum);
         solutions++;
+        if (onSolution) onSolution(gates.slice(0,depth),out);
         if (isStarTree(core,gates,depth,out)) starTrees++;
       }
       return;

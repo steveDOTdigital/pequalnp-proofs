@@ -174,6 +174,57 @@ function verifyPinBounds() {
   }
 }
 
+function verifyFirstAnd() {
+  // By symmetry take triple point 9. In the deleted graph the five line
+  // inputs keep their labels and the possible neighbors of point 9 are 0,2,3.
+  const adjacent = [0,2,3];
+  assert(graph(null,3).transforms.some(p=>p[10]===9));
+  const counts = {circuits:0,insertions:0,compatible:0};
+  function checkInsertions(gates,out) {
+    counts.circuits++;
+    const raw = Array.from({length:10},(_,i)=>i<5 ? 1<<(i+1) : 0);
+    const wanted = adjacent.reduce((m,line)=>m | (1<<(line+1)),0);
+    for (let source=0; source<10+gates.length; source++) {
+      const uses = [];
+      gates.forEach(([,a,b],i)=>{
+        if (a===source) uses.push(2*i);
+        if (b===source) uses.push(2*i+1);
+      });
+      if (out===source) uses.push(2*gates.length);
+      for (let mask=1; mask<1<<uses.length; mask++) {
+        counts.insertions++;
+        const chosen = new Set(uses.filter((_,i)=>mask & (1<<i)));
+        // Point 9 is on in all six rows. The restored OR therefore forces
+        // selected reads high. Other old points are off; at most one line is on.
+        const wires = [...raw];
+        gates.forEach(([isOr,a,b],i)=>{
+          const x = chosen.has(2*i) ? 63 : wires[a];
+          const y = chosen.has(2*i+1) ? 63 : wires[b];
+          wires.push(isOr ? x|y : x&y);
+        });
+        const value = chosen.has(2*gates.length) ? 63 : wires[out];
+        for (const line of adjacent) {
+          // Skip the row where the other input of the first AND is high.
+          // On every remaining row that gate's value must be zero.
+          const compare = 63 & ~(1<<(line+1));
+          if (((value^wanted)&compare)===0) counts.compatible++;
+        }
+      }
+    }
+  }
+  for (let h=0; h<4; h++) {
+    const core = graph(9,h);
+    assert(core.transforms.every(p=>
+      adjacent.every(i=>adjacent.includes(p[i]))));
+    const result = enumerate(core,15,null,h===0 ? checkInsertions : null);
+    assert.equal(result.solutions,h===0 ? 2277 : 0);
+    console.log("triple point deleted at 15 gates, helper mask",h,result);
+  }
+  assert.deepEqual(counts,{circuits:2277,insertions:87939,compatible:0});
+  console.log("restoring point 9 with the first AND zero",counts);
+}
+
+
 verifyFanoGeometry();
 verifyControl();
 if (process.argv.includes("--cofactors")) verifyPinBounds();
@@ -183,3 +234,5 @@ for (let helperMask=0; helperMask<4; helperMask++) {
   assert.equal(result.solutions,0);
   console.log("17 gates, helper mask",helperMask,result);
 }
+
+if (process.argv.includes("--first-and")) verifyFirstAnd();
