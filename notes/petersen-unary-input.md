@@ -10,6 +10,10 @@ A signed binary gate computes the conjunction of any two earlier signals with in
 
 Every supplied unary function is a constant, identity or complementation. Absorb all NOT gates and these unary pins into wire signs. A physical circuit of at most 18 gates using at least one NOT would give a signed circuit of at most 17 gates. In the absence of NOT, the second model contains the original circuit: relabel the ten raw pins and replace the unary pin with the appropriate canonical literal or constant. The Lean proof implements both transformations, including repeated operands, nullary and unary gates, arbitrary outputs and invalid indices. The theorem at the end of the file has the printed desk conclusion verbatim.
 
+The [finite Lean model](PetersenUnaryBoundary.lean) proves that 38 labeled assignments suffice for the second model. With coordinate zero fixed to false, the list contains 12 minimal positive and 12 maximal negative inputs. With it fixed to true, the list contains nine minimal positives and five maximal negatives. Lean checks the covering relation on all 1,024 assignments and proves that every eligible physical circuit is monotone on each slice. It also checks the 13 packed input words and the target word 2,097,151.
+
+The theorem `resultFromFiniteChecks` now accepts two purely finite claims. The signed claim uses at most 17 instructions and 1,024 truth-table bits per wire. Its selectors range from 0 to 56. The monotone claim uses at most 18 instructions and 38 bits per wire, with selectors from 0 to 31. The last selector in either model represents an invalid read returning false. The compilation covers empty, unary and binary gates. These definitions and transfers pass Lean's kernel. The two universal claims are still established by the external searches. A separate direct SAT encoding of the 38-row claim had 69,883 clauses and returned unknown after 120 seconds.
+
 | Graph and basis | Excluded binary budget | Profile and first-gate combinations | Prefixes visited |
 | --- | ---: | ---: | ---: |
 | Nine vertices, signed | 14 | 26 | 10,407 |
