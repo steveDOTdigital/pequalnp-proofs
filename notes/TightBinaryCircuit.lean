@@ -569,4 +569,186 @@ theorem binaryCutTwins {n} (K : SimpleGraph (Fin n)) [DecidableRel K.Adj]
     have hh : graphFun K ∅ (bits {a,d}) = graphFun K ∅ (bits {b,d}) := by simpa using h
     rw [hh]
 
+-- A pair of certificate traces consumes the same one-unit gate budget as
+-- the ordinary reverse frontier, after also charging their common wires.
+def move (w : ℕ) (inputs front : Finset ℕ) :=
+  if w ∈ front then front.erase w ∪ inputs else front
+
+theorem traceStep (w : ℕ) (I S P N U V : Finset ℕ)
+    (arity : I.card ≤ 2) (pSub : P ⊆ S) (nSub : N ⊆ S)
+    (uSub : U ⊆ I) (vSub : V ⊆ I) (one : (U ∩ V).card ≤ 1) :
+    (move w I S).card + (move w U P ∩ move w V N).card ≤ S.card + (P ∩ N).card + 1 := by
+  by_cases live : w ∈ S
+  · let D := S.erase w
+    let A := if w ∈ P then U else ∅
+    let B := if w ∈ N then V else ∅
+    have pm : move w U P = P.erase w ∪ A := by
+      by_cases h : w ∈ P <;> simp [move,A,h,Finset.erase_eq_of_notMem]
+    have nm : move w V N = N.erase w ∪ B := by
+      by_cases h : w ∈ N <;> simp [move,B,h,Finset.erase_eq_of_notMem]
+    have asub : A ⊆ I := by by_cases h : w ∈ P <;> simp_all [A]
+    have bsub : B ⊆ I := by by_cases h : w ∈ N <;> simp_all [B]
+    have bound : (move w U P ∩ move w V N) ⊆
+        ((P ∩ N).erase w ∪ (D ∩ I)) ∪ (A ∩ B) := by
+      rw [pm,nm]
+      intro z hz
+      obtain ⟨hp,hn⟩ := Finset.mem_inter.mp hz
+      rcases Finset.mem_union.mp hp with oldP | newP <;>
+        rcases Finset.mem_union.mp hn with oldN | newN
+      · obtain ⟨ne,pi⟩ := Finset.mem_erase.mp oldP
+        obtain ⟨_,ni⟩ := Finset.mem_erase.mp oldN
+        exact Finset.mem_union_left _ (Finset.mem_union_left _ (Finset.mem_erase.mpr
+          ⟨ne,Finset.mem_inter.mpr ⟨pi,ni⟩⟩))
+      · obtain ⟨ne,pi⟩ := Finset.mem_erase.mp oldP
+        exact Finset.mem_union_left _ (Finset.mem_union_right _ (Finset.mem_inter.mpr
+          ⟨Finset.mem_erase.mpr ⟨ne,pSub pi⟩,bsub newN⟩))
+      · obtain ⟨ne,ni⟩ := Finset.mem_erase.mp oldN
+        exact Finset.mem_union_left _ (Finset.mem_union_right _ (Finset.mem_inter.mpr
+          ⟨Finset.mem_erase.mpr ⟨ne,nSub ni⟩,asub newP⟩))
+      · exact Finset.mem_union_right _ (Finset.mem_inter.mpr ⟨newP,newN⟩)
+    have overlap : ((P ∩ N).erase w).card+(A ∩ B).card ≤ (P ∩ N).card := by
+      by_cases p : w∈P <;> by_cases n : w∈N
+      · have mem := Finset.mem_inter.mpr ⟨p,n⟩
+        have erase := Finset.card_erase_of_mem mem
+        have pos := Finset.card_pos.mpr ⟨w,mem⟩
+        simp only [A,B,ite_eq_left p,ite_eq_left n]; omega
+      all_goals simp [A,B,p,n,Finset.erase_eq_of_notMem]
+    have joined := Finset.card_union_add_card_inter D I
+    have small := Finset.card_le_card bound
+    have first := Finset.card_union_le ((P ∩ N).erase w) (D ∩ I)
+    have second := Finset.card_union_le ((P ∩ N).erase w ∪ (D ∩ I)) (A ∩ B)
+    have rem : D.card+1 = S.card := by
+      have := Finset.card_erase_of_mem live; have := Finset.card_pos.mpr ⟨w,live⟩
+      dsimp [D]; omega
+    rw [show move w I S = D ∪ I by simp [move,D,live]]; omega
+  · have p : w ∉ P := fun h => live (pSub h)
+    have n : w ∉ N := fun h => live (nSub h)
+    simp [move,live,p,n]
+
+def choosePort (want : Bool) (x : Pins) : List ℕ → Finset ℕ
+  | [] => ∅
+  | [a] => {a}
+  | a::b::_ => if x a = want then {a} else {b}
+
+def ports (want : Bool) (g : Gate) (x : Pins) : Finset ℕ :=
+  match want,g.op with
+  | true,.or | false,.and => choosePort want x g.inputs
+  | _,_ => g.inputs.toFinset
+
+theorem choice {want : Bool} (xs : List ℕ) (x : Pins) :
+    (choosePort want x xs).card ≤ 1 ∧ choosePort want x xs ⊆ xs.toFinset := by
+  rcases xs with _ | ⟨a, _ | ⟨b,cs⟩⟩
+  · simp [choosePort]
+  · simp [choosePort]
+  · by_cases eq : x a=want <;> simp [choosePort,eq]
+
+theorem portSub (want : Bool) (g : Gate) (x : Pins) : ports want g x ⊆ g.inputs.toFinset := by
+  cases want <;> cases eq : g.op <;> simp [ports,eq,(choice _ _).2]
+
+theorem portOne (g : Gate) (kind : g.op = .and ∨ g.op = .or) (x y : Pins) :
+    (ports true g x ∩ ports false g y).card ≤ 1 := by
+  rcases kind with h|h
+  · exact (Finset.card_le_card Finset.inter_subset_right).trans (by simpa [ports,h] using (choice (want:=false) g.inputs y).1)
+  · exact (Finset.card_le_card Finset.inter_subset_left).trans (by simpa [ports,h] using (choice (want:=true) g.inputs x).1)
+
+def safe (want : Bool) (x z : Pins) (S : Finset ℕ) := ∀ i ∈ S, x i=want → z i=want
+
+theorem portSafe (want : Bool) (g : Gate) (kind : g.op = .and ∨ g.op = .or)
+    (width : g.inputs.length ≤ 2) (x z : Pins) (ok : safe want x z (ports want g x))
+    (on : g.op.eval (g.inputs.map x) = want) : g.op.eval (g.inputs.map z) = want := by
+  rcases g with ⟨op,ins⟩
+  change ins.length ≤ 2 at width
+  change op = .and ∨ op = .or at kind
+  rcases ins with _ | ⟨a, _ | ⟨b,_ | ⟨c,cs⟩⟩⟩
+  · exact on
+  · rcases kind with rfl|rfl <;> cases want <;> simp_all [safe,ports,choosePort,GateOp.eval]
+  · rcases kind with rfl|rfl <;> cases want <;> cases xa : x a <;> cases xb : x b <;>
+      simp_all [safe,ports,choosePort,GateOp.eval]
+  · simp at width
+
+theorem moveSafe (w : ℕ) (g : Gate) (kind : g.op = .and ∨ g.op = .or)
+    (width : g.inputs.length ≤ 2) (want : Bool) (x z : Pins) (S : Finset ℕ)
+    (ok : safe want x z (move w (ports want g x) S)) :
+    safe want (step w g x) (step w g z) S := by
+  intro i hi on
+  by_cases eq : i=w
+  · subst i; simp only [step,Function.update_self] at on ⊢
+    exact portSafe _ _ kind width _ _ (fun k hk => ok k (by simp [move,hi,hk])) on
+  · simp only [step,Function.update_of_ne eq] at on ⊢
+    apply ok i _ on; by_cases h : w∈S <;> simp [move,h,eq,hi]
+
+theorem movedSub {w : ℕ} {U I P S : Finset ℕ} (u : U ⊆ I) (p : P ⊆ S) :
+    move w U P ⊆ move w I S := by
+  by_cases hp : w ∈ P
+  · simp only [move,ite_eq_left hp,ite_eq_left (p hp)]
+    exact Finset.union_subset_union (Finset.erase_subset_erase _ p) u
+  · by_cases hs : w ∈ S
+    · simp only [move,ite_eq_right hp,ite_eq_left hs]
+      exact fun k hk => Finset.mem_union_left _ (Finset.mem_erase.mpr ⟨fun eq => hp (eq ▸ hk),p hk⟩)
+    · simpa [move,hp,hs] using p
+
+theorem certificateBudget (gs : List Gate) (base : ℕ) (x y : Pins)
+    (S P N : Finset ℕ) (ps : P ⊆ S) (ns : N ⊆ S)
+    (mono : ∀ g ∈ gs, (g.op = .and ∨ g.op = .or) ∧ g.inputs.length ≤ 2) :
+    ∃ A B : Finset ℕ, A ⊆ back base gs S ∧ B ⊆ back base gs S ∧
+      (back base gs S).card+(A ∩ B).card ≤ S.card+(P ∩ N).card+gs.length ∧
+      (∀ z, safe true x z A → safe true (run base x gs) (run base z gs) P) ∧
+      (∀ z, safe false y z B → safe false (run base y gs) (run base z gs) N) := by
+  induction gs generalizing base x y with
+  | nil => exact ⟨P,N,ps,ns,by simp [back],fun _ ok => ok,fun _ ok => ok⟩
+  | cons g gs ih =>
+    obtain ⟨kind,width⟩ := mono g List.mem_cons_self
+    obtain ⟨A,B,asub,bsub,cost,apos,bneg⟩ := ih (base+1) (step base g x) (step base g y)
+      (fun j hj => mono j (List.mem_cons_of_mem _ hj))
+    let D := back (base+1) gs S
+    let U := ports true g x
+    let V := ports false g y
+    have us := portSub true g x; have vs := portSub false g y
+    have cap := traceStep base g.inputs.toFinset D A B U V
+      ((List.toFinset_card_le _).trans width) asub bsub us vs (portOne g kind x y)
+    refine ⟨move base U A,move base V B,movedSub us asub,movedSub vs bsub,?_,?_,?_⟩
+    · change (move base g.inputs.toFinset D).card + _ ≤ _ + (gs.length+1)
+      change D.card+_ ≤ _ at cost; omega
+    · exact fun z ok => apos _ (moveSafe base g kind width true x z A ok)
+    · exact fun z ok => bneg _ (moveSafe base g kind width false y z B ok)
+
+theorem commonPivots {n : ℕ} (C : Circuit) (ess : essential n C)
+    (mono : ∀ g ∈ C.gates, (g.op = .and ∨ g.op = .or) ∧ g.inputs.length ≤ 2)
+    (x y : Fin n → Bool) (on : evalOn C x = true) (off : evalOn C y = false)
+    (R : Finset (Fin n)) (pivotal : ∀ i ∈ R, evalOn C (Function.update x i false) = false ∧
+      evalOn C (Function.update y i true) = true) : n + R.card ≤ C.size + 2 := by
+  let ext (z : Fin n → Bool) := fun j => (List.ofFn z).getD j false
+  have sem (z : Fin n → Bool) : run n (ext z) C.gates C.output = evalOn C z := by
+    have h := congrFun (simulate C.gates (List.ofFn z)) C.output
+    simpa only [List.length_ofFn,ext,evalOn,Circuit.eval,Circuit.wires,actual] using h.symm
+  obtain ⟨A,B,_,_,cost,yes,no⟩ := certificateBudget C.gates n (ext x) (ext y)
+    {C.output} {C.output} {C.output} (by rfl) (by rfl) mono
+  have necessary (want : Bool) (z : Fin n → Bool) (V : Finset ℕ)
+      (trace : ∀ u, safe want (ext z) u V →
+        safe want (run n (ext z) C.gates) (run n u C.gates) {C.output})
+      (base : evalOn C z = want) (i : Fin n) (flip : evalOn C (Function.update z i (!want)) ≠ want) :
+      i.val ∈ V := by
+    by_contra absent
+    let u := Function.update z i (!want)
+    have same : safe want (ext z) (ext u) V := by
+      intro j hj value
+      change (List.ofFn (Function.update z i (!want))).getD j false = want
+      have h := congrFun (extendUpdate z i (!want)) j
+      rw [h,Function.update_of_ne (show j ≠ i.val from fun e => absent (e ▸ hj))]
+      exact value
+    exact flip ((sem u).symm.trans (trace (ext u) same C.output (Finset.mem_singleton_self _)
+      ((sem z).trans base)))
+  have sub : R.image Fin.val ⊆ A ∩ B := by
+    intro v hv
+    obtain ⟨i,hi,rfl⟩ := Finset.mem_image.mp hv
+    obtain ⟨lo,up⟩ := pivotal i hi
+    exact Finset.mem_inter.mpr ⟨necessary true x A yes on i (by simp [lo]),
+      necessary false y B no off i (by simp [up])⟩
+  have h := Finset.card_le_card sub
+  rw [Finset.card_image_of_injective _ Fin.val_injective] at h
+  have source := Finset.card_le_card (sourceCover n C ess)
+  simp only [Finset.card_range] at source
+  simp only [Finset.inter_self,Finset.card_singleton] at cost
+  unfold Circuit.size; omega
+
 end TightBinaryCircuit
