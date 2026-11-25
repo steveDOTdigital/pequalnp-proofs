@@ -15,9 +15,10 @@ using Table = std::bitset<(1u << WIDTH)>;
 #ifndef PETERSEN_PAIR_MODE
 #define PETERSEN_PAIR_MODE 0
 #endif
-constexpr int n = WIDTH, maxWires = PETERSEN_PAIR_MODE ? 32 : 26;
+constexpr int n = WIDTH, maxWires = PETERSEN_PAIR_MODE ? (n <= 10 ? 32 : 48) : 26;
 constexpr int domains = 2*n + (PETERSEN_PAIR_MODE ? n*(n-1)/2 : (SIGNED_MODE && n==9 ? 9 : 0));
 using Bounds = std::array<int, domains>;
+using WireSet = std::uint64_t;
 using Needs = std::array<Table, n>;
 using Readers = std::array<std::array<unsigned char, 2>, n>;
 
@@ -29,7 +30,7 @@ class Search {
 #if PETERSEN_PAIR_MODE >= 2
     PetersenProfileCuts cuts{PETERSEN_PAIR_MODE == 3};
     std::array<int,1<<n> circuitFloor{};
-    std::array<unsigned,domains> constantWires{};
+    std::array<WireSet,domains> constantWires{};
     Table minimalPos{}, maximalNeg{};
 #endif
     std::array<Table, maxWires> wires{}, good{};
@@ -156,6 +157,18 @@ class Search {
                 stack.push_back(rhs[j-n]);
             }
         }
+        // Cutting the unique twice-used wire leaves only that signal and
+        // the raw variables with at least one occurrence outside its cone.
+        int outsideMask = 0;
+        for (int v = 0; v < n; ++v)
+            if (leaves[v] < rawQuota(v)) outsideMask |= 1<<v;
+        std::array<unsigned char,1<<n> outcomes{};
+        for (int row = 0; row < (1<<n); ++row) {
+            auto& flags = outcomes[row & outsideMask];
+            const int value = (int(wires[h].test(row)) << 1) | int(target.test(row));
+            if (flags & (1u << (value^1))) return false;
+            flags |= 1u << value;
+        }
         for (int mask = 1; mask < (1<<n); ++mask) {
             int outside = 0;
             for (int j = 0; j < n; ++j)
@@ -178,7 +191,7 @@ class Search {
         return true;
     }
 
-    bool visit(int depth, int minA, int minB, const Bounds& lost, const Needs& needs, unsigned pending, const Readers& seen) {
+    bool visit(int depth, int minA, int minB, const Bounds& lost, const Needs& needs, WireSet pending, const Readers& seen) {
         if ((++nodes & 4095) == 0 &&
             std::chrono::steady_clock::now() - start > std::chrono::seconds(seconds)) {
             expired = true;
@@ -187,11 +200,11 @@ class Search {
         const int wire = n + depth, after = budget - depth - 1;
         for (int b = minB; b < wire; ++b) {
             for (int a = (b == minB ? minA : 0); a < b; ++a) {
-                unsigned nextPending = (pending & ~(1u<<a) & ~(1u<<b)) | (1u<<wire);
-                if (__builtin_popcount(nextPending) > after + 1) continue;
+                WireSet nextPending = (pending & ~(WireSet{1}<<a) & ~(WireSet{1}<<b)) | (WireSet{1}<<wire);
+                if (__builtin_popcountll(nextPending) > after + 1) continue;
                 if (PETERSEN_PAIR_MODE && quotaTotal == budget && (!SIGNED_MODE || PETERSEN_PAIR_MODE >= 2)) {
-                    if (a >= n && !(pending & (1u<<a)) && !canBeOnlySharedWire(a)) continue;
-                    if (b >= n && !(pending & (1u<<b)) && !canBeOnlySharedWire(b)) continue;
+                    if (a >= n && !(pending & (WireSet{1}<<a)) && !canBeOnlySharedWire(a)) continue;
+                    if (b >= n && !(pending & (WireSet{1}<<b)) && !canBeOnlySharedWire(b)) continue;
                 }
                 for (int isOr = 0; isOr < (SIGNED_MODE?4:2); ++isOr) {
                     if (PETERSEN_PAIR_MODE == 3 && isOr != 0 && isOr != 3) continue;
@@ -288,7 +301,7 @@ class Search {
                     }
                     if (!admissible) continue;
                     Needs remaining{};
-                    int mustRead = __builtin_popcount(nextPending);
+                    int mustRead = __builtin_popcountll(nextPending);
                     for (int v = 0; v < n; ++v) {
                         remaining[v] = needs[v] & ~(val ^ (val >> (1<<v)));
                         mustRead += remaining[v].any();
@@ -318,7 +331,7 @@ class Search {
                                 } else if (rawQuota(v)==2 && readers[v][0]) admissible=false;
                                 futureSlots+=rawQuota(v)-used;
                             }
-                            if (futureSlots+__builtin_popcount(nextPending)>after+1) admissible=false;
+                            if (futureSlots+__builtin_popcountll(nextPending)>after+1) admissible=false;
                         }
                         if (!admissible) continue;
                     }
@@ -328,8 +341,8 @@ class Search {
                         // All zero restrictions are handled together below.
                         if (d >= 2*n || !(d&1)) continue;
                         const bool constant = (val & boundary[d]).none() || (~val & boundary[d]).none();
-                        if (constant) constantWires[d] |= 1u<<wire;
-                        else constantWires[d] &= ~(1u<<wire);
+                        if (constant) constantWires[d] |= WireSet{1}<<wire;
+                        else constantWires[d] &= ~(WireSet{1}<<wire);
 #endif
                         bool redundant = SIGNED_MODE ?
                             ((val & boundary[d]).none() || (~val & boundary[d]).none()) :
@@ -359,7 +372,7 @@ class Search {
                             }
                         }
 #if PETERSEN_PAIR_MODE >= 2
-                        extra += __builtin_popcount(nextPending & constantWires[d]);
+                        extra += __builtin_popcountll(nextPending & constantWires[d]);
 #endif
                         if (dropped[d] + extra > cap[d]) {
                             admissible = false;

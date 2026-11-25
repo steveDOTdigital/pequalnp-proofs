@@ -39,30 +39,30 @@ def automorphisms():
 
 
 @lru_cache(None)
-def local_masks(reads, clean):
+def local_masks(reads, clean, degree=3):
     """Minimal sets of locally dominated rows, numbered 0, 1, 2."""
-    if reads >= 3:
+    if reads >= degree:
         return (0,)  # Allow independent row labels; no forced domination.
     found = set()
-    clean_rows = [i for i in range(3) if clean & (1 << i)]
-    for incidence in product(range(1, 1 << reads), repeat=3):
+    clean_rows = [i for i in range(degree) if clean & (1 << i)]
+    for incidence in product(range(1, 1 << reads), repeat=degree):
         # The column of all clean neighbors must report v exactly once on
         # every clean row. A bit in incidence[i] is a positive occurrence.
         if not any(all(bin(incidence[i] & active).count("1") == 1 for i in clean_rows)
                    for active in range(1 << reads)):
             continue
-        dominated = sum(1 << i for i in range(3)
+        dominated = sum(1 << i for i in range(degree)
                         if any(j != i and incidence[j] & ~incidence[i] == 0
                                for j in clean_rows))
         found.add(dominated)
     return tuple(d for d in found if not any(a != d and a & ~d == 0 for a in found))
 
 
-def compatible(bad, reads):
+def compatible(bad, reads, incident=INCIDENT, bits=BITS):
     choices = []
-    for v, rows in enumerate(INCIDENT):
-        clean = sum(1 << i for i, e in enumerate(rows) if not BITS[e] & bad & ~(1 << v))
-        options = local_masks(reads[v], clean)
+    for v, rows in enumerate(incident):
+        clean = sum(1 << i for i, e in enumerate(rows) if not bits[e] & bad & ~(1 << v))
+        options = local_masks(reads[v], clean, len(rows))
         choices.append([sum(1 << e for i, e in enumerate(rows) if d & (1 << i))
                         for d in options])
     choices.sort(key=len)
@@ -89,6 +89,61 @@ def survivors(bad, independent, budget):
             allowed = [r + (v in extra) for v, r in enumerate(reads)]
             if compatible(bad, allowed):
                 yield single, allowed
+
+
+def check_induced(vertices_kept, group):
+    """Exclude a signed formula one leaf below the star upper bound."""
+    vertices_kept = vertices(vertices_kept)
+    n = len(vertices_kept)
+    all_raw = (1 << n)-1
+    edges = [(vertices_kept.index(a),vertices_kept.index(b)) for a,b in EDGES
+             if a in vertices_kept and b in vertices_kept]
+    bits = [(1<<a)|(1<<b) for a,b in edges]
+    incident = [[i for i,e in enumerate(edges) if v in e] for v in range(n)]
+    neighbors = [sum(bits[j] ^ (1<<v) for j in row) for v,row in enumerate(incident)]
+    counts = [bin(s).count("1") for s in range(1<<n)]
+    active, price, alpha = [0]*(1<<n), [0]*(1<<n), [0]*(1<<n)
+    for s in range(1,1<<n):
+        bit = s & -s
+        alpha[s] = max(alpha[s^bit],1+alpha[(s^bit) & ~neighbors[bit.bit_length()-1]])
+        for e in bits:
+            if e & s == e:
+                active[s] |= e
+                price[s] += 1
+        price[s] += counts[s]-alpha[s]
+    budget = price[all_raw]-1
+    # Degree-one neighbors need not distinguish AND from OR under pinning.
+    robust = sum(1<<v for v,row in enumerate(incident) if len(row)>=2)
+    singles = [s for s in range(1<<n) if all((s & robust & e) != e for e in bits)]
+    maps = {tuple(vertices_kept.index(g[v]) for v in vertices_kept) for g in group
+            if {g[v] for v in vertices_kept} == set(vertices_kept)}
+    seen = set()
+    for bad in range(1<<n):
+        if bad in seen:
+            continue
+        rest = all_raw ^ bad
+        if 3*counts[bad] + counts[rest ^ active[rest]] + price[rest] > budget:
+            continue
+        seen.update(sum(1 << g[v] for v in range(n) if bad & (1<<v)) for g in maps)
+        for single in singles:
+            if single & bad:
+                continue
+            private = [counts[ns & single & robust] for ns in neighbors]
+            if any(single & (1<<v) and need>1 for v,need in enumerate(private)):
+                continue
+            reads = [1 if single & (1<<v) else max(2,need) for v,need in enumerate(private)]
+            spare = budget - counts[bad] - sum(reads)
+            if spare < 0:
+                continue
+            # Pin the mixed variables and any isolated clean vertices low.
+            outside = sum(r for v,r in enumerate(reads) if not active[rest] & (1<<v))
+            if counts[bad]+outside+price[rest] > budget:
+                continue
+            eligible = [v for v in range(n) if reads[v]==2 and len(incident[v])==3]
+            for extra in combinations(eligible,min(spare,len(eligible))):
+                allowed = [r+(v in extra) for v,r in enumerate(reads)]
+                assert not compatible(bad,allowed,incident,bits), (vertices_kept,bad,single,allowed)
+    return price[all_raw]
 
 
 def main():
@@ -119,6 +174,8 @@ def main():
     print(f"{len(seen)} mixed sets, {orbits} orbits, {len(independent)} independent single sets.")
     print("One local profile survived; private filters require 21 positive point leaves, with 14 available.")
     print("No 27-leaf signed formula; the 28-leaf positive control passed.")
+    for mask in (4091,4095,8127,8175,8191,16383):
+        print(f"Induced mask {mask}: exactly {check_induced(mask,maps)} signed leaves.")
 
 
 if __name__ == "__main__":

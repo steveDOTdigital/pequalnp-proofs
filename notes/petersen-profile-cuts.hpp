@@ -53,6 +53,7 @@ public:
 
         int k = 0;
         for (int y = 0; y < (1<<n); ++y) if (!target.test(y)) {
+            if (k == int(selected.size())) break;
             bool maximal = true;
             for (int v = 0; v < n; ++v)
                 if (!(y & (1<<v)) && !target.test(y|(1<<v))) maximal = false;
@@ -60,7 +61,8 @@ public:
                 const int distance = __builtin_popcount(x^y);
                 if (__builtin_popcount(x) != 2 && distance != 1 && !(maximal && distance == 2))
                     continue;
-                if (k >= int(selected.size())) std::exit(19);
+                // Any subset of comparison pairs is a sound necessary test.
+                if (k == int(selected.size())) break;
                 selected.set(k);
                 for (int v = 0; v < n; ++v) {
                     positive[v].set(k, (x>>v)&1);
@@ -75,39 +77,39 @@ public:
 
     // A suffix can access the raw inputs still owed reads and each pending
     // gate once. Every other earlier gate it accesses spends an extra use.
-    bool canSeparate(int wire, int a, int b, int op, unsigned pending,
+    bool canSeparate(int wire, int a, int b, int op, WireSet pending,
                      const Readers& read, int remainingGates) {
         positive[wire] = combine(op, positive[a], positive[b]);
         negative[wire] = combine(op, negative[a], negative[b]);
         separates[wire] = distinction(wire);
         RowPairs missing = selected;
-        int spare = remainingGates + 1 - __builtin_popcount(pending);
+        int spare = remainingGates + 1 - __builtin_popcountll(pending);
         for (int v = 0; v < n; ++v) {
             const int left = quota[v] - read[v][0] - read[v][1];
             spare -= left;
             if (left) missing &= ~separates[v];
         }
-        for (unsigned m = pending; m; m &= m-1) missing &= ~separates[__builtin_ctz(m)];
+        for (WireSet m = pending; m; m &= m-1) missing &= ~separates[__builtin_ctzll(m)];
         if (missing.none()) return true;
         if (spare <= 0) return false;
         RowPairs available{};
-        for (int i = n; i < wire; ++i) if (!(pending & (1u<<i))) {
+        for (int i = n; i < wire; ++i) if (!(pending & (WireSet{1}<<i))) {
             const RowPairs other = missing & ~separates[i];
             if (other.none()) return true;
             if (spare == 2) for (int j = n; j < i; ++j)
-                if (!(pending & (1u<<j)) && (other & ~separates[j]).none()) return true;
+                if (!(pending & (WireSet{1}<<j)) && (other & ~separates[j]).none()) return true;
             available |= separates[i];
         }
         return spare > 2 && (missing & ~available).none();
     }
 
 #if PETERSEN_PAIR_MODE == 4
-    bool physicalSuffix(int z, int wire, unsigned pending, const Readers& read, int after,
+    bool physicalSuffix(int z, int wire, WireSet pending, const Readers& read, int after,
                         const std::array<std::array<unsigned,2>,maxWires>& polarity,
                         unsigned usedPos, unsigned usedNeg) const {
         const unsigned bitZ=1u<<z;
         RowPairs missing=selected;
-        int spare=after+1-__builtin_popcount(pending);
+        int spare=after+1-__builtin_popcountll(pending);
         auto covers = [&](int j, bool pos, bool neg) -> RowPairs {
             if (pos && neg) return positive[j] ^ negative[j];
             if (pos) return positive[j] & ~negative[j];
@@ -130,15 +132,15 @@ public:
         auto signal = [&](int j) {
             return covers(j,polarity[j][0]&bitZ,polarity[j][1]&bitZ);
         };
-        for (unsigned m=pending; m; m &= m-1) missing &= ~signal(__builtin_ctz(m));
+        for (WireSet m=pending; m; m &= m-1) missing &= ~signal(__builtin_ctzll(m));
         if (missing.none()) return true;
         if (spare<=0) return false;
         RowPairs available{};
-        for (int i=n; i<wire; ++i) if (!(pending & (1u<<i))) {
+        for (int i=n; i<wire; ++i) if (!(pending & (WireSet{1}<<i))) {
             RowPairs rest=missing & ~signal(i);
             if (rest.none()) return true;
             if (spare==2) for (int j=n; j<i; ++j) {
-                if (!(pending & (1u<<j)) && (rest & ~signal(j)).none()) return true;
+                if (!(pending & (WireSet{1}<<j)) && (rest & ~signal(j)).none()) return true;
             }
             available |= signal(i);
         }
@@ -148,14 +150,14 @@ public:
 
     // For each induced graph, charge each folded prefix gate, each future
     // pinned raw read and each still-unconsumed constant prefix signal.
-    bool withinZeroBudgets(int wire, int a, int b, const Table& value, unsigned pendingBefore,
+    bool withinZeroBudgets(int wire, int a, int b, const Table& value, WireSet pendingBefore,
                            const std::array<Table,maxWires>& wires) {
         const int depth = wire - n;
         const Table zero = zeroRestrictions(value);
         zeroOn[wire] = zero;
         auto resource = [&](int i) -> Table {
             if (i < n) return ~raw[i];
-            return (pendingBefore & (1u<<i)) ? zeroOn[i] : Table{};
+            return (pendingBefore & (WireSet{1}<<i)) ? zeroOn[i] : Table{};
         };
         const Table left = resource(a), right = resource(b);
         const Table any = left | right, both = left & right;

@@ -1,6 +1,7 @@
 import PEqualNP.Defs.MetaComplexity
 import FlagStarCircuit
 import PlaneSharedFormulas
+import PetersenRawNormal
 
 namespace HeawoodSignedFormulas
 open PEqualNP.CircuitLowerBounds PEqualNP.MetaComplexity FlagStarCircuit
@@ -20,6 +21,27 @@ theorem upper : PEqualNP.MetaComplexity.HasCircuitSize 14 (fun x : Fin 14 → Bo
     change circuitFun 14 witness.circuit x = _
     rw [realBool]
     simp [witness,star,Expr.val,op,GateOp.eval,Bool.and_or_distrib_left,Bool.or_assoc]
+
+def target (x : Fin 14 → Bool) : Bool :=
+  (x 0 && x 7) || (x 0 && x 8) || (x 0 && x 10) || (x 1 && x 7) || (x 1 && x 9) || (x 1 && x 13) || (x 2 && x 8) || (x 2 && x 12) || (x 2 && x 13) || (x 3 && x 7) || (x 3 && x 11) || (x 3 && x 12) || (x 4 && x 10) || (x 4 && x 11) || (x 4 && x 13) || (x 5 && x 9) || (x 5 && x 10) || (x 5 && x 12) || (x 6 && x 8) || (x 6 && x 9) || (x 6 && x 11)
+
+def signedValue (p : List (ℕ × ℕ)) (o : ℕ) (x : Fin 14 → Bool) : Bool :=
+  (p.foldl (fun w ij => let z := w.getD ij.1 false && w.getD ij.2 false
+    w ++ [z,!z]) ([false,true] ++ List.ofFn x ++ (List.ofFn x).map Bool.not)).getD o false
+
+/-- Combine the external signed binary and monotone lower bounds using the desk's
+actual evaluator, including its default wires and gates of arity below two. -/
+theorem ordinaryLower (s : ℕ)
+    (signed : ∀ p o, (∀ x, signedValue p o x = target x) → s ≤ p.length)
+    (monotone : ∀ C : Circuit,
+      (∀ g ∈ C.gates, (g.op = .and ∨ g.op = .or) ∧ g.inputs.length = 2) →
+      (∀ x, circuitFun 14 C x = target x) → s < C.size) :
+    ¬HasCircuitSize 14 target s := by
+  rintro ⟨C,legal,small,correct⟩
+  rcases PetersenRawNormal.normalize 14 C legal with binary | ⟨p,o,short,eval⟩
+  · exact (Nat.not_lt_of_ge small) (monotone C binary correct)
+  · have floor := signed p o (fun x => (eval x).trans (correct x))
+    omega
 
 open PlaneSharedFormulas
 
