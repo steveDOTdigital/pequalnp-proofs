@@ -79,6 +79,8 @@ def boundary():
                 w.append(w[left] or w[right] if op == "or" else w[left] and w[right])
             assert w[out] == positive
             assert (w[a] and w[b]) if positive else not w[a if ls & 1 else b]
+    assert max(bin(x).count('1') + bin(y).count('1') for x,y in maximal if x and y) == 10
+    assert [(x,y) for x,y in maximal if not y & 1 and bin(x).count('1') + bin(y).count('1') >= 11] == [(FULL,0)]
     print("Flags", len(positives), "maximal negatives by selector",
           sorted(Counter(bool(y & 1) for _, y in maximal).items()))
     print("Independent rows", sum(counts.values()), "by selector and high/low extension", sorted(counts.items()))
@@ -107,6 +109,20 @@ def geometry():
              (3,9),(3,10),(4,5),(4,6),(4,10)]
     template = [sum(1 << j for j, k in flags if k == p) for p in range(5, 11)]
     free = {frozenset((template[0], template[2])), frozenset((template[1], template[3]))}
+    orbits = [{i} for i in range(11)]
+    for perm in permutations(range(5)):
+        masks = [sum(1 << perm[j] for j in bits(h)) for h in template]
+        if sorted(masks) != sorted(template):
+            continue
+        move = dict(zip(template, masks))
+        if {frozenset(move[h] for h in pair) for pair in free} != free:
+            continue
+        image = list(perm) + [5 + template.index(h) for h in masks]
+        for v, w in enumerate(image):
+            orbits[v].add(w)
+    distinct = sorted(set(tuple(sorted(s)) for s in orbits))
+    assert distinct == [(0, 1, 2, 4), (3,), (5, 6, 7, 8), (9, 10)]
+    print("Two-triple core vertex orbits", distinct)
     counts = Counter()
     for u in combinations(range(13), 5):
         hood = [sum(1 << j for j, l in enumerate(u) if 1 << p & LINES[l]) for p in range(13)]

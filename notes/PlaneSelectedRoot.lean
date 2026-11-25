@@ -381,4 +381,47 @@ theorem operandsUpper (a b : Row → Bool) (ma : Monotone a) (mb : Monotone b) :
       have t := (lowExtension y mx.1).mp ⟨y,le_rfl,mx,hy⟩
       exact hb y mx.1 t.1 t.2
 
+
+def pointRow (p : Fin 13) : Row := fun i => decide (i = Fin.castAdd 13 p)
+def flagRow (p l : Fin 13) : Row := fun i => decide (i = Fin.castAdd 13 p ∨ i = Fin.natAdd 13 l)
+
+def pointNorm (h : Row → Bool) (x : Row) : Bool :=
+  decide (∃ p : Fin 13, h (pointRow p) = true ∧ x (Fin.castAdd 13 p) = true)
+
+theorem pointNormBelow (h : Row → Bool) (mh : Monotone h) (x : Row)
+    (yes : pointNorm h x = true) : h x = true := by
+  obtain ⟨p,hp,on⟩ := of_decide_eq_true yes
+  have le : pointRow p ≤ x := by
+    intro i
+    by_cases e : i = Fin.castAdd 13 p
+    · subst i; simp [pointRow,on]
+    · simp [pointRow,e]
+  have hh := mh le
+  cases hx : h x with
+  | true => rfl
+  | false => rw [hp,hx] at hh; exact False.elim ((by decide : ¬true ≤ false) hh)
+
+theorem pointNormFlag (h : Row → Bool) (p l : Fin 13) :
+    pointNorm h (flagRow p l) = h (pointRow p) := by
+  have eqpoint (q : Fin 13) : flagRow p l (Fin.castAdd 13 q) = true ↔ q=p := by
+    simp only [flagRow,decide_eq_true_eq,or_iff_left (disjointPins q l)]
+    constructor
+    · intro e; exact Fin.ext (congrArg (fun i : Fin 26 => i.val) e)
+    · rintro rfl; rfl
+  cases e : h (pointRow p) with
+  | true => exact decide_eq_true ⟨p,e,(eqpoint p).mpr rfl⟩
+  | false =>
+    apply decide_eq_false
+    rintro ⟨q,on,hq⟩
+    obtain rfl := (eqpoint q).mp hq
+    simp [e] at on
+
+
+theorem singleSharedImpossible {k a b : ℕ} (size : k+a+b+1 ≤ 64)
+    (second : 60 ≤ k+b) (lines : 13 ≤ b) (retained : 64 ≤ k+5*a) : False := by omega
+
+theorem operandOverlap {first second common total : ℕ}
+    (a : 37 ≤ first) (b : 38 ≤ second) (sz : total ≤ 64)
+    (union : first+second+1 ≤ total+common) : 12 ≤ common := by omega
+
 end PlaneSelectedRoot

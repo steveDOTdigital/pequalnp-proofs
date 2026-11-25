@@ -140,15 +140,17 @@ bool search(const std::vector<int>& live,int depth,int spare,int lastRight,int l
     return false;
 }
 int main(int argc,char**argv) {
-    if(argc<5 || argc>7)return 2;
+    if(argc<5 || argc>8)return 2;
     std::string shape=argc>=6?argv[5]:"k4";
     bool theta=shape=="theta", triple=shape=="triple", pencil=shape=="pencil";
     bool twoTriples=shape=="two-triples";
     if(shape!="k4" && !theta && !triple && !pencil && !twoTriples)return 2;
-    if(argc==7){
+    int drop=argc==8?std::atoi(argv[7]):-1;
+    if(argc==8 && (!twoTriples || drop<0 || drop>=11))return 2;
+    if(argc>=7){
         acceptSmaller=std::string(argv[6])=="and-or-smaller";
-        if(std::string(argv[6])!="and" && !acceptSmaller)return 2;
-        requireAnd=true;
+        requireAnd=std::string(argv[6])=="and" || acceptSmaller;
+        if(!requireAnd && std::string(argv[6])!="any")return 2;
     }
     int arms=triple?3:4;
     int raw=twoTriples?11:triple?8:pencil?9:10;
@@ -174,6 +176,14 @@ int main(int argc,char**argv) {
     }else{
         for(int i=0;i<6;++i)for(int j=0;j<4;++j)if(ends[i]&(1<<j))flags.push_back({j,4+i});
     }
+    auto originalFlags=flags;
+    auto remap=[&](int v){return v-int(drop>=0 && v>drop);};
+    if(drop>=0){
+        --raw;
+        flags.clear();
+        for(auto [a,b]:originalFlags)if(a!=drop && b!=drop)
+            flags.push_back({remap(a),remap(b)});
+    }
     for(auto e:flags)rows.push_back((1<<e[0])|(1<<e[1]));
     for(int x=0;x<(1<<raw);++x)if(!target(x)){
         bool maximal=true;
@@ -188,11 +198,14 @@ int main(int argc,char**argv) {
     std::vector<int> masks;
     for(int i=0;i<raw;++i)masks.push_back(1<<i);
     if(twoTriples){
-        if(helpers&1)masks.push_back((1<<5)|(1<<7));
-        if(helpers&2)masks.push_back((1<<6)|(1<<8));
+        auto addFree=[&](int bit,int a,int b){
+            if((helpers&bit) && a!=drop && b!=drop)masks.push_back((1<<remap(a))|(1<<remap(b)));
+        };
+        addFree(1,5,7);
+        addFree(2,6,8);
     }else for(int i=0;i<helpers;++i)masks.push_back((1<<(4+i))|(1<<(9-i)));
     width=masks.size();
-    pinFifth=twoTriples && requireAnd && limit==18;
+    pinFifth=twoTriples && drop<0 && requireAnd && limit==18;
     if(pinFifth){
         std::vector<int> tests;
         for(auto [l,r]:flags)if(l!=3)tests.push_back((1<<l)|(1<<r));
@@ -218,8 +231,8 @@ int main(int argc,char**argv) {
     for(int a=0;a<width;++a)for(int b=a+1;b<width;++b)first[a][b]=true;
     if(twoTriples){
         std::array<int,5> perm={0,1,2,3,4};
-        std::vector<int> hood(raw-5);
-        for(auto [line,point]:flags)hood[point-5]|=1<<line;
+        std::vector<int> hood(6);
+        for(auto [line,point]:originalFlags)hood[point-5]|=1<<line;
         do{
             std::vector<int> im(perm.begin(),perm.end());
             for(int mask:hood){
@@ -229,7 +242,11 @@ int main(int argc,char**argv) {
                 if(it==hood.end())break;
                 im.push_back(5+(it-hood.begin()));
             }
-            if(static_cast<int>(im.size())!=raw)continue;
+            if(im.size()!=11 || (drop>=0 && im[drop]!=drop))continue;
+            if(drop>=0){
+                im.erase(im.begin()+drop);
+                for(int &v:im)v=remap(v);
+            }
             for(int j=raw;j<width;++j){
                 int moved=0;
                 for(int k=0;k<raw;++k)if(masks[j]&(1<<k))moved|=1<<im[k];
