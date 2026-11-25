@@ -111,7 +111,7 @@ def reader_jobs(n, edges, group, formula, lower, budget, seconds, monotone_mode=
         return [z for z in range(r+1) if r+min(2,z) <= cap_zero and r+min(2,r-z) <= cap_high]
     sizes = [[r for r in range(1,min(budget-a,budget-b)+1) if signs(r,budget-a,budget-b)]
              for a,b in zip(zero,high)]
-    assert all(not options or max(options)<=4 for options in sizes)
+    assert all(not options or max(options) <= 8 for options in sizes)
     truth = [any(s & e == e for e in bits) for s in range(1 << n)]
     essential = {(v,w,t):any(truth[s] != truth[s | (1 << v)] for s in range(1 << n)
                              if not s & (1 << v) and ((s >> w) & 1)==t)
@@ -143,7 +143,10 @@ def reader_jobs(n, edges, group, formula, lower, budget, seconds, monotone_mode=
             for g in stabilizer:
                 u,w = g[a],g[b]
                 seeds.discard((op,u,w) if u<w else (((op&1)<<1)|(op>>1),w,u))
-            data = [budget,seconds,len(edges),sum((c-1) << (2*v) for v,c in enumerate(counts)),*bits]
+            profile = sum((((c-1) & 3) << (2*v)) | (((c-1) >> 2) << (2*n+v))
+                          for v, c in enumerate(counts))
+            assert profile.bit_length() <= 64
+            data = [budget,seconds,len(edges),profile,*bits]
             for v in range(n):
                 data.extend((zero[v],high[v]))
             for a,b in pairs:

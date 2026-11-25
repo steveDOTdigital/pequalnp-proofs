@@ -43,10 +43,17 @@ class Search {
     std::array<bool,domains> commonReader{};
     std::vector<std::array<int,3>> fixed;
     int budget, seconds;
-    unsigned repeatedRaw = 0;
+    std::uint64_t repeatedRaw = 0;
     int quotaTotal = 0;
     int rawQuota(int v) const {
-        if (PETERSEN_PAIR_MODE >= 2) return 1 + ((repeatedRaw>>(2*v))&3u);
+        if (PETERSEN_PAIR_MODE >= 2) {
+            // Existing profiles use two bits per input. An extra bit above
+            // that bank encodes five through eight readers without changing older profiles.
+            unsigned low = (repeatedRaw >> (2*v)) & 3u;
+            int highBit = 2*n+v;
+            unsigned high = highBit < 64 ? (repeatedRaw >> highBit) & 1u : 0u;
+            return 1 + low + 4*high;
+        }
         return 1 + ((repeatedRaw>>v)&1u);
     }
 #if PETERSEN_PAIR_MODE == 4
