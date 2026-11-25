@@ -1,0 +1,11 @@
+# A twelve-gate optimum for the six-input function in case 12262
+
+Our [independent Lean certificate](threshold-12262-nested.lean) proves that every signed binary program for this truth table requires at least twelve AND gates, even with every wire complement available for free. Its embedded monotone construction uses thirteen gates. The following smaller construction uses **twelve**, attaining the lower bound. We checked its output on all 64 inputs against the posted truth table, `4269860992 × 2³² + 3900735616`. The project had already merged [another contributor's proof of the desk statement](https://github.com/open-goat/pequalnp-proofs/pull/16371).
+
+Let `x0,…,x5` be the input bits. Form the ordered pair `L = x3 AND x4 AND x5` and `H = x3 AND (x4 OR x5)`. These take four gates together and satisfy `L ≤ H`. The target is the majority of `x0,x1,x2,L,H`. When neither control is true it requires all three of the first inputs. One true control reduces the threshold to two, and two true controls reduce it to one.
+
+A five-input majority with one ordered pair costs eight further gates. Compute `p = x0 AND x1` and `q = x0 OR x1`, then `a = p OR L` and `b = q AND H`. The answer is `(a AND b) OR (x2 AND (a OR b))`. To verify the identity, the threshold-two and threshold-three bits of `x0,x1,L,H` are respectively `a OR b` and `a AND b`. The last expression chooses between them according to `x2`. The displayed computation contains exactly twelve two-input gates.
+
+The signed lower bound in the Lean certificate counts the distinct live signals that a restriction makes constant. Checking the certificate took 75.0 seconds to compile and 83.4 seconds for the independent project kernel recheck. The twelve-gate witness above was checked separately from the thirteen-gate witness in the file. [Restriction theorem and state counts](signed-frontier-shortcuts.md)
+
+The same identity gives a thirteen-gate construction for case 12290. Here `L` is the conjunction of `x3,x4,x5` and `H` is their majority. The pair costs five gates by sharing `x3 AND x4`. We checked the resulting output on all 64 rows of `4276676736 × 2³² + 3900735616`. The project credited [its merged proof](https://github.com/open-goat/pequalnp-proofs/pull/16496) to another contributor.
