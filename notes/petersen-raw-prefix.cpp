@@ -12,7 +12,11 @@
 
 #include <bitset>
 using Table = std::bitset<(1u << WIDTH)>;
-constexpr int n = WIDTH, maxWires = 26, domains = 2 * n + (SIGNED_MODE && n == 9 ? 9 : 0);
+#ifndef PETERSEN_PAIR_MODE
+#define PETERSEN_PAIR_MODE 0
+#endif
+constexpr int n = WIDTH, maxWires = PETERSEN_PAIR_MODE ? 32 : 26;
+constexpr int domains = 2*n + (PETERSEN_PAIR_MODE ? 45 : (SIGNED_MODE && n==9 ? 9 : 0));
 using Bounds = std::array<int, domains>;
 using Needs = std::array<Table, n>;
 using Readers = std::array<std::array<unsigned char, 2>, n>;
@@ -28,11 +32,61 @@ class Search {
     std::array<bool,domains> commonReader{};
     std::vector<std::array<int,3>> fixed;
     int budget, seconds;
+    unsigned repeatedRaw = 0;
+    int rawQuota(int v) const { return 1 + ((repeatedRaw>>v)&1u); }
     uint64_t nodes = 0;
     std::chrono::steady_clock::time_point start;
     bool expired = false;
 
     static Table bit(int row) { return Table(1) << row; }
+    std::array<signed char,maxWires> shareOk{};
+    std::array<int,PETERSEN_PAIR_MODE && !SIGNED_MODE ? (1<<n) : 1> formulaFloor{};
+
+    // Seven twice-read inputs leave precisely one extra internal use in a
+    // 17-gate raw circuit. Its shared wire has two uses and its cone is a tree.
+    bool canBeOnlySharedWire(int h) {
+        if (shareOk[h] >= 0) return shareOk[h];
+        shareOk[h] = 0;
+        for (int v = 0; v < n; ++v) {
+            if (rawQuota(v) != 2) continue;
+            Table mask = ~wires[v];
+            // The 9-input cofactor needs 16 binary gates as a formula.
+            // Two direct readers vanish, leaving at most 15 gates. If h
+            // becomes an input or a constant the cofactor has no sharing.
+            if ((wires[h] & mask).none() || (~wires[h] & mask).none()) return false;
+            for (int j = 0; j < n; ++j)
+                if (((wires[j] ^ wires[h]) & mask).none()) return false;
+        }
+        std::array<int,n> leaves{};
+        std::vector<int> stack{h};
+        while (!stack.empty()) {
+            const int j = stack.back();
+            stack.pop_back();
+            if (j < n) ++leaves[j];
+            else {
+                stack.push_back(lhs[j-n]);
+                stack.push_back(rhs[j-n]);
+            }
+        }
+        for (int mask = 1; mask < (1<<n); ++mask) {
+            int outside = 0;
+            for (int j = 0; j < n; ++j)
+                if ((mask >> j) & 1) outside += rawQuota(j) - leaves[j];
+            if (outside >= formulaFloor[mask]) continue;
+            std::array<int,maxWires> weight{};
+            for (int j = 0; j < n; ++j) weight[j] = (mask >> j) & 1;
+            // Zero pins discard the other branch of an AND. For an OR all
+            // surviving leaves are a valid upper bound after simplification.
+            for (int j = n; j <= h; ++j) {
+                const int a = weight[lhs[j-n]], b = weight[rhs[j-n]];
+                weight[j] = op[j-n] || (a && b) ? a+b : 0;
+            }
+            if (outside + 2*weight[h] < formulaFloor[mask]) return false;
+        }
+        shareOk[h] = 1;
+        return true;
+    }
+
     bool visit(int depth, int minA, int minB, const Bounds& lost, const Needs& needs, unsigned pending, const Readers& seen) {
         if ((++nodes & 4095) == 0 &&
             std::chrono::steady_clock::now() - start > std::chrono::seconds(seconds)) {
@@ -44,6 +98,10 @@ class Search {
             for (int a = (b == minB ? minA : 0); a < b; ++a) {
                 unsigned nextPending = (pending & ~(1u<<a) & ~(1u<<b)) | (1u<<wire);
                 if (__builtin_popcount(nextPending) > after + 1) continue;
+                if (PETERSEN_PAIR_MODE && !SIGNED_MODE && __builtin_popcount(repeatedRaw) == 7) {
+                    if (a >= n && !(pending & (1u<<a)) && !canBeOnlySharedWire(a)) continue;
+                    if (b >= n && !(pending & (1u<<b)) && !canBeOnlySharedWire(b)) continue;
+                }
                 for (int isOr = 0; isOr < (SIGNED_MODE?4:2); ++isOr) {
                     if (depth < int(fixed.size()) && fixed[depth] != std::array<int,3>{isOr,a,b}) continue;
                     if (!depth && !first[isOr][a][b]) continue;
@@ -77,18 +135,28 @@ class Search {
                     }
                     if (mustRead > after+1) continue;
                     Readers readers = seen;
-                    if (SIGNED_MODE) {
+                    if (SIGNED_MODE || PETERSEN_PAIR_MODE) {
                         if (a < n) ++readers[a][isOr & 1];
-                        if (b < n) ++readers[b][(isOr >> 1) & 1];
+                        if (b < n) ++readers[b][SIGNED_MODE ? ((isOr >> 1) & 1) : isOr];
                         for (int v=0; v<n; ++v) {
                             int total=readers[v][0]+readers[v][1]+int(remaining[v].any());
                             for (int t=0; t<2; ++t) {
                                 // Each forced reader needs a separate consumer from the
                                 // direct readers. Two solely co-consumed forced signals
                                 // would replace three gates by at most two.
-                                int consumers=std::min(2,int(readers[v][t]));
+                                int consumers=SIGNED_MODE ? std::min(2,int(readers[v][t])) : int(readers[v][t]>0);
                                 if (total+consumers>cap[2*v+t]) admissible=false;
                             }
+                        }
+                        if (PETERSEN_PAIR_MODE) {
+                            int futureSlots=0;
+                            for (int v=0; v<n; ++v) {
+                                const int used=readers[v][0]+readers[v][1];
+                                if (used+int(remaining[v].any())>rawQuota(v)) admissible=false;
+                                if (rawQuota(v)==2 && readers[v][0]) admissible=false;
+                                futureSlots+=rawQuota(v)-used;
+                            }
+                            if (futureSlots+__builtin_popcount(nextPending)>after+1) admissible=false;
                         }
                         if (!admissible) continue;
                     }
@@ -105,6 +173,22 @@ class Search {
                         int extra=remaining[pinA[d]].any();
                         if (pinB[d]>=0 && remaining[pinB[d]].any()
                             && (!extra || !commonReader[d])) ++extra;
+                        if (PETERSEN_PAIR_MODE) {
+                            int v=pinA[d], w=pinB[d];
+                            extra=rawQuota(v)-readers[v][0]-readers[v][1];
+                            if (w>=0) {
+                                int more=rawQuota(w)-readers[w][0]-readers[w][1];
+                                // At most one future gate can read both pinned sources.
+                                // All raw-pair gates are ORs, and duplicates are redundant.
+                                bool mayCombine=commonReader[d] && extra>0 && more>0;
+                                if (mayCombine) {
+                                    if ((a==v && b==w) || (a==w && b==v)) mayCombine=false;
+                                    for(int j=0;j<depth && mayCombine;++j)
+                                        if ((lhs[j]==v && rhs[j]==w) || (lhs[j]==w && rhs[j]==v)) mayCombine=false;
+                                }
+                                extra+=more-int(mayCombine);
+                            }
+                        }
                         if (dropped[d] + extra > cap[d]) {
                             admissible = false;
                             break;
@@ -112,8 +196,10 @@ class Search {
                     }
                     if (!admissible) continue;
                     lhs[depth] = a; rhs[depth] = b; op[depth] = isOr;
+                    shareOk[wire] = -1;
                     wires[wire] = val; good[wire] = correct;
-                    if (!after || visit(depth+1,a,b,dropped,remaining,nextPending,readers)) return true;
+                    bool restartOrder=PETERSEN_PAIR_MODE && depth+1==int(fixed.size());
+                    if (!after || visit(depth+1,restartOrder ? 0 : a,restartOrder ? 1 : b,dropped,remaining,nextPending,readers)) return true;
                     if (expired) return false;
                 }
             }
@@ -125,6 +211,7 @@ public:
     void run() {
         int edges, choices;
         std::cin >> budget >> seconds >> edges;
+        if(PETERSEN_PAIR_MODE) std::cin >> repeatedRaw;
         if (!std::cin || budget < 1 || n+budget > maxWires) std::exit(2);
         for (int i=0; i<edges; ++i) {
             int e; std::cin >> e;
@@ -152,6 +239,8 @@ public:
             for (int r=0; r<(1<<n); ++r)
                 if (!(r & ((1<<a)|(1<<b)))) boundary[d] |= bit(r);
         }
+        if (PETERSEN_PAIR_MODE && !SIGNED_MODE)
+            for (int &floor : formulaFloor) std::cin >> floor;
         int fixedSize;
         std::cin >> fixedSize;
         if (fixedSize < 0 || fixedSize > budget) std::exit(2);

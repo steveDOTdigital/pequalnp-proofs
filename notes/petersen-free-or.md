@@ -1,6 +1,6 @@
 # Seventeen signed binary gates for the raw Petersen edge function
 
-For L-meta-1888, any circuit computing the ten-input Petersen edge function from raw inputs needs at least **17 binary gates**, even with free negation on every input, intermediate wire and output. Giving the circuit the extra input $x_0 \lor x_2$ therefore still requires **16 binary gates**. A circuit of at most 18 ordinary gates with the desk's extra input could use at most two NOT gates. A 19-gate circuit with the extra input is known. The cases with zero, one or two NOT gates remain open in this calculation.
+For L-meta-1888, any circuit computing the ten-input Petersen edge function from raw inputs needs at least **17 binary gates**, even with free negation on every input, intermediate wire and output. Giving the circuit the extra input $x_0 \lor x_2$ therefore still requires **16 binary gates**. A circuit of at most 18 ordinary gates with the desk's extra input could use at most two NOT gates. The ordinary raw circuit needs at least **18 gates**. With the extra input the ordinary lower and upper bounds are **17 and 19**. The cases with zero, one or two NOT gates remain open in this calculation.
 
 The [independent finite certificate](petersen-free-or-certificate.py) exhausts the small remaining search on all 1,024 truth rows. The [Lean companion](PetersenFreeOr.lean) checks the transfer from a raw signed lower bound to the actual desk evaluator, including arbitrary wiring, repeated pins, default reads and gates with fewer than two operands. The raw signed exclusion itself combines the following argument and Python calculation.
 
@@ -34,6 +34,18 @@ Three bounds prune a prefix.
 | 773 | 1 | 437 | 7 |
 
 No prefix reaches the target. A positive control checks the known six-star construction with 19 gates and the free OR, or 20 when its OR is paid, on all input rows. Run `python3 -B notes/petersen-free-or-certificate.py` from the proof repository. The Lean file imports the earlier [signed circuit compiler](PetersenSignedSlice.lean).
+
+## Eighteen gates in the ordinary circuit model
+
+Every raw monotone circuit needs at least **18 gates**. A circuit with a paid NOT also needs at least 18 gates by the 17-gate signed bound. Consequently the full raw AND/OR/NOT circuit complexity lies between **18 and 20**, and the free-OR assignment lies between **17 and 19**. An ordinary circuit on the free OR can always be converted to a raw circuit by paying one additional OR, even for nonbijective raw-input wiring.
+
+For the monotone calculation, the signed bound already excludes sizes below 17. Each zero pin needs at least [15 ordinary gates](petersen-raw-bound.md), so every vertex in a minimum 17-gate circuit has one or two direct readers. The two readers of a twice-read vertex must both be ORs by the same zero-pin argument. Every raw-pair gate therefore joins two twice-read vertices by OR. Now both adjacent and nonadjacent first pairs are possible. Pinning a vertex high gives a six-cycle plus three independent singleton alarms. The six-cycle needs eight monotone gates by the [pseudoforest bound](pseudoforest-circuits.md); setting each alarm low removes at least one gate, giving the high-pin bound of eleven.
+
+In a live circuit with 17 binary gates the sum of all internal uses beyond the first use of each nonoutput gate is 18 minus the total number of raw input positions. If all eight spare raw positions go to repeated variables there is no sharing, contradicting the 20-gate monotone formula minimum. Thus at most seven variables are twice-read. The two endpoints of the first gate must be among them. There are 219 eligible subsets for each first pair. Their stabilizers give 42 orbits for an adjacent first pair and 80 for a nonadjacent first pair. The [driver](petersen-free-or-search.py) and [prefix checker](petersen-raw-prefix.cpp) excluded all 122 orbits. The checker compares monotone wires on minimal positive and maximal negative rows as described in the [nine-variable calculation](petersen-raw-bound.md).
+
+With exactly seven twice-read vertices, one internal gate has exactly two uses and every other nonoutput gate has one. Its input cone is a tree. Pinning a twice-read vertex to zero leaves at most 15 gates. The nine-input cofactor needs 16 binary gates as a formula, so the shared output must remain a nonconstant, nonliteral function on every such restriction. A second test restricts to each induced subgraph. Outside the shared tree the available raw occurrences are the total raw counts less those inside the tree. Inside it, zero pins can kill an entire AND branch. Twice the resulting tree leaf count plus the available outside occurrences must reach the induced graph's [monotone formula minimum](cubic-formula-leaves.md). Both tests apply only when there is exactly one extra internal use.
+
+Run `python3 -B notes/petersen-free-or-search.py` to repeat the monotone calculation. Use `--signed` to repeat the independent C++ check of the 16-gate signed case. Any individual timeout makes the run inconclusive.
 
 ## Formula consequence
 
