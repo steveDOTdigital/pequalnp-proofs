@@ -1,6 +1,6 @@
 # One negation on the seven-input graph in case 11088
 
-The seven-input function has a 12-gate AND/OR circuit. An independent exhaustive computation finds that it needs 12 binary gates even when every wire can be inverted for free. Hence a paid NOT cannot produce a shorter circuit. The exact signed lower bound is currently external to Lean.
+The seven-input function has a 12-gate AND/OR circuit. Lean proves that every circuit for the function using at most one NOT can be replaced by a monotone circuit of no greater size. The local project checker accepted the exact posted statement and rechecked 2,783 constants. The submitted file has its own certificate of the six-input signed lower bound. A separate C++ calculation gives the stronger seven-input signed minimum of 12. [Upstream proof submission](https://github.com/open-goat/pequalnp-proofs/pull/15584)
 
 ## Upper bound
 
@@ -31,7 +31,13 @@ Run `python3 notes/seven-vertex-one-not.py` from the proof repository with a C++
 | 126 (prism) | 10 | 10 | 14 | 730 |
 | 127 (full graph) | 12 | 12 | 62 | 24,587 |
 
-The 730-prefix prism calculation is the remaining kernel-certification target for the shorter proof. The separate unrestricted seven-input calculation verifies the stronger 12-gate signed minimum.
+The 730-prefix calculation establishes the six-input signed minimum independently of the Lean certificate. The unrestricted seven-input calculation gives the 12-gate signed minimum.
+
+## The Lean lower-bound certificate
+
+The kernel proof works backwards from the output to identify the wires still needed after every gate. With `k` gates remaining, at most `k+1` such wires can participate. Two input assignments with different target values must disagree on at least one live wire. These restrictions leave 4,978 representative wire sets across all gate budgets after identifying the prism’s twelve vertex symmetries. The checker enumerates every legal next AND with either input optionally inverted, including every possible decision to reuse an operand. Each viable successor must match a recorded representative under an actual graph symmetry. The lookup hash only proposes a match. Lean checks the wire permutation before using it.
+
+The [finite-search argument](PrismSignedFrontier.lean), [input and target tables](PrismFrontierData.lean), [certificate data](PrismFrontierCertificate.lean), [kernel checks](PrismClosure.lean), and [connection to the posted circuit semantics](PrismOneNotBound.lean) are included. The [data generator](prism-frontier-lean.py) uses the [standalone C++ enumerator](prism-frontier-certificate.cpp) and regenerates the stored table deterministically.
 
 ## Where a useful negation would have to occur
 
