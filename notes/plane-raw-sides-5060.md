@@ -2,7 +2,7 @@
 
 [L-meta-5060](https://pequalnp.com/lemma#L-meta-5060) concerns a 19-AND circuit for the order-four projective plane. Its 42 variables are the 21 points and 21 lines. An input is accepted exactly when it contains an incident point and line. The [opposite is L-meta-5061](https://pequalnp.com/lemma#L-meta-5061). The following necessary conditions leave the full claim open.
 
-**At least 18 variables survive singleton removal.** Start with the 38 signed raw sides (the left and right variable sets at all 19 gates). Restrict all the sides to the remaining variables. Whenever a side contains only one variable, remove that variable and discard resulting empty sides. Repeat until every retained side contains at least two variables. The bound holds for every order of removal. In the original circuit each of the 42 variables also occurs on at least one side of size at most three.
+**At least 20 variables survive singleton removal.** Start with the 38 signed raw sides (the left and right variable sets at all 19 gates). Restrict all the sides to the remaining variables. Whenever a side contains only one variable, remove that variable and discard resulting empty sides. Repeat until every retained side contains at least two variables. At exactly 20, the counting conditions force ten points, ten lines, twelve mixed sides, two pure point sides and two pure line sides. The bound holds for every order of removal. In the original circuit each of the 42 variables also occurs on at least one side of size at most three.
 
 ## Recovering variables on independent inputs
 
@@ -30,29 +30,73 @@ With at most two remaining side labels on a shore, k is at most six. Write a,b,c
 
 When a shore of size k at least seven has a single pure side, it contains all k vertices. Each member must have one further mixed side beyond W(v). Without that extra side the chosen witness would neighbor the other k−1 vertices, exceeding degree five. There is room for just one extra mixed side per vertex. At most three vertices use any one as their extra, by the signature-class bound. Thus the number of mixed sides is at least k plus the ceiling of k/3.
 
-Let p,l be the two shore sizes, M the mixed-side count and A,B the pure-side counts. We have M ≥ max(p,l), A,B ≥ 1 and M+A+B ≤ p+l−4. There are at most M−p+A remaining point labels, and at most M−l+B remaining line labels. Applying the preceding inequalities on both shores leaves no possibilities with fewer than 18 vertices. This short Python replay verifies the integer count and lists all surviving configurations at 18; the order is points, lines, mixed sides, pure point sides, pure line sides, up to exchanging shores.
+Four further restrictions sharpen the count.
+
+1. A class of three is incomparable with every other occupied signature. A smaller signature would have a witness neighboring the whole noncollinear triple. For a larger signature, its vertex would have to lie on all three lines through pairs of that same noncollinear triple.
+2. For a class of size two with at least two vertices having strictly larger signatures, the witnesses of its two members must coincide: they neighbor the same two larger-signature vertices. Each chosen mixed side contains just its own vertex and that common witness, since every opposite-shore vertex on the side must serve as a witness. The two class members and all strict supersets lie on this one line. Each such class therefore consumes one mixed side beyond those available as distinct private choices for the opposite shore. Distinct classes use disjoint pairs of sides.
+3. Suppose a class of three has an extra mixed side besides its chosen private sides. Its common signature then consists of one pure side H and this mixed side J. Pick an opposite vertex t on J. Every q in H outside the class must neighbor t: for each class member v, use q on H, t on J and the witness on W(v). If q missed t, it would have to neighbor all three W witnesses. Those are the three distinct sides of the noncollinear triangle formed by the class. Thus H outside this class has at most five vertices and cannot contain an entire other class of three.
+4. If a shore with a single pure side has k at least nine, a three-member group from the preceding paragraph would have to fit k−3 other vertices on one line. For k equal to eight, two groups of three would instead give two lines each containing the complement of its group. The lines share at least two of the eight vertices and hence coincide, which would put all eight on one line. Thus when k equals eight at most one group has three members, and at least four extra mixed sides are required. For every k at least eight the lower bound on the mixed sides is k plus the ceiling of k/2.
+
+Let p,l be the two shore sizes, M the mixed-side count and A,B the pure-side counts. We have M ≥ max(p,l), A,B ≥ 1 and M+A+B ≤ p+l−4. There are at most M−p+A remaining point labels and at most M−l+B remaining line labels. Labels unused by a shore can be included with zero occurrences. For up to three labels, the following replay checks their possible signature multiplicities. For more labels it only applies the single-pure-side estimate, which suffices for the bound.
 
 ```python
-def allowed(k, mixed, pure):
+from itertools import product
+
+def shore_possible(k, opposite, mixed, pure):
+    if pure == 1 and k >= 7:
+        group_limit = 3 if k == 7 else 2
+        if mixed < k + (k + group_limit - 1) // group_limit:
+            return False
+
+    # Each chosen mixed side is private on this shore. The remaining
+    # labels start with the pure sides, followed by any extra mixed sides.
     labels = mixed - k + pure
-    if labels <= 1 and k > 3:
-        return False
-    if labels <= 2 and k > 6:
-        return False
-    return pure != 1 or k < 7 or mixed >= k + (k + 2) // 3
+    if labels > 3:
+        return True
+    pure_mask = (1 << pure) - 1
+    masks = [i for i in range(1, 1 << labels)
+             if i.bit_count() <= 2 and i & pure_mask]
+    for counts in product(range(4), repeat=len(masks)):
+        if sum(counts) != k:
+            continue
+        duplicates = 0
+        valid = True
+        for s, n in zip(masks, counts):
+            if not n:
+                continue
+            above = [t for t, h in zip(masks, counts)
+                     if h and t != s and t & s == s]
+            upper_sizes = [counts[masks.index(t)] for t in above]
+            upper = sum(upper_sizes)
+            if (3 in upper_sizes or (n == 3 and upper)
+                    or n - 1 + upper > 5):
+                valid = False
+            if n == 2 and upper >= 2:
+                duplicates += 1
+                if n + upper > 5:
+                    valid = False
+            if n == 3 and s & ~pure_mask:
+                pure_label = s & pure_mask
+                outside = [h for t, h in zip(masks, counts)
+                           if t != s and t & pure_label]
+                if sum(outside) > 5 or 3 in outside:
+                    valid = False
+        if valid and duplicates <= mixed - opposite:
+            return True
+    return False
 
 survivors = []
-for p in range(1, 19):
+for p in range(1, 21):
     for l in range(1, p + 1):
-        if p + l > 18:
+        if p + l > 20:
             continue
         for mixed in range(p, p + l - 5):
             for a in range(1, p + l - 4 - mixed):
                 for b in range(1, p + l - 3 - mixed - a):
-                    if allowed(p, mixed, a) and allowed(l, mixed, b):
+                    if (shore_possible(p, l, mixed, a)
+                            and shore_possible(l, p, mixed, b)):
                         survivors.append((p, l, mixed, a, b))
-assert sorted(survivors) == [(9, 9, 10, 2, 2), (9, 9, 12, 1, 1),
-                             (10, 8, 11, 2, 1)]
+assert survivors == [(10, 10, 12, 2, 2)]
 ```
 
-The extra posted hypothesis about the union of gates reading a nonincident point and line was not needed for this bound. The three configurations at 18 pass only the displayed counting conditions; no circuit realizing any of them is known here.
+The extra posted hypothesis bounding the number of gates reading either endpoint of a nonincident point-line pair was not needed. The surviving size-20 configuration describes counts; constructing or excluding circuits with those counts and larger cores remains open.
