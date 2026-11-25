@@ -157,6 +157,48 @@ theorem restrictedPrice {E V T B : Type*} [DecidableEq E] [DecidableEq V] [Finty
     (Or.inr (by simpa using hs))
   simpa using bound
 
+theorem partitionLocal {E V T B : Type*} [Fintype E] [Fintype V] [Fintype B]
+    [DecidableEq E] [DecidableEq V]
+    (label : B → V) (select : E → T → B) (row : B → E → Bool) (col : B → T → Bool)
+    (rect : ∀ e t b, select e t = b ↔ row b e = true ∧ col b t = true)
+    (cross : E → T) (miss : E → V) (report : E → V)
+    (diag : ∀ e, label (select e (cross e)) = report e)
+    (distinct : ∀ e, miss e ≠ report e)
+    (force : ∀ a b v, a ≠ b → (miss a = v ∨ report a = v) →
+      (miss b = v ∨ report b = v) → label (select a (cross b)) = v)
+    (base : ∀ e v, (miss e = v ∨ report e = v) → ∃ t, label (select e t) = v) :
+    ∀ v, Fintype.card {e // miss e = v} +
+      (if v ∈ Finset.univ.image report then 1 else 0) ≤ Fintype.card {b // label b = v} := by
+  classical
+  intro v
+  let M := Finset.univ.filter fun e => miss e = v
+  have card : M.card = Fintype.card {e // miss e = v} := by simp [M,Fintype.card_subtype]
+  have member {e} : e ∈ M ↔ miss e = v := by simp [M]
+  have use (s : Finset E) (ends : ∀ e ∈ s, miss e = v ∨ report e = v)
+      (atMost : ∀ a ∈ s, ∀ b ∈ s, report a = v → report b = v → a = b) :
+      s.card ≤ Fintype.card {b // label b = v} :=
+    restrictedPrice label select row col rect cross v s
+      (fun a ha b hb ne => force a b v ne (ends a ha) (ends b hb))
+      (fun a ha b hb ar br => atMost a ha b hb ((diag a).symm.trans ar)
+        ((diag b).symm.trans br))
+      (fun e he => base e v (ends e he))
+  by_cases hv : v ∈ Finset.univ.image report
+  · obtain ⟨r,_,hr⟩ := Finset.mem_image.mp hv
+    have notM : r ∉ M := fun m => distinct r ((member.mp m).trans hr.symm)
+    have unique (a : E) (h : a ∈ insert r M) (ar : report a = v) : a = r := by
+      rcases Finset.mem_insert.mp h with eq | mem
+      · exact eq
+      · exact False.elim (distinct a ((member.mp mem).trans ar.symm))
+    have h := use (insert r M) (fun a mem => by
+      rcases Finset.mem_insert.mp mem with rfl | hm
+      · exact Or.inr hr
+      · exact Or.inl (member.mp hm))
+      (fun a ha b hb ar br => (unique a ha ar).trans (unique b hb br).symm)
+    simpa [hv,Finset.card_insert_of_notMem notM,card] using h
+  · have h := use M (fun _ hm => Or.inl (member.mp hm))
+      (fun a ha _ _ ar _ => False.elim (distinct a ((member.mp ha).trans ar.symm)))
+    simpa [hv,card] using h
+
 theorem partitionCover {E V T B : Type*} [Fintype E] [Fintype V] [Fintype B]
     [DecidableEq E] [DecidableEq V]
     (label : B → V) (select : E → T → B) (row : B → E → Bool) (col : B → T → Bool)
@@ -170,35 +212,7 @@ theorem partitionCover {E V T B : Type*} [Fintype E] [Fintype V] [Fintype B]
     Fintype.card E + (Finset.univ.image report).card ≤ Fintype.card B := by
   classical
   let price (v : V) := Fintype.card {b // label b = v}
-  have cost (v : V) : Fintype.card {e // miss e = v} +
-      (if v ∈ Finset.univ.image report then 1 else 0) ≤ price v := by
-    let M := Finset.univ.filter fun e => miss e = v
-    have card : M.card = Fintype.card {e // miss e = v} := by simp [M,Fintype.card_subtype]
-    have member {e} : e ∈ M ↔ miss e = v := by simp [M]
-    have use (s : Finset E) (ends : ∀ e ∈ s, miss e = v ∨ report e = v)
-        (atMost : ∀ a ∈ s, ∀ b ∈ s, report a = v → report b = v → a = b) :
-        s.card ≤ price v :=
-      restrictedPrice label select row col rect cross v s
-        (fun a ha b hb ne => force a b v ne (ends a ha) (ends b hb))
-        (fun a ha b hb ar br => atMost a ha b hb ((diag a).symm.trans ar)
-          ((diag b).symm.trans br))
-        (fun e he => base e v (ends e he))
-    by_cases hv : v ∈ Finset.univ.image report
-    · obtain ⟨r,_,hr⟩ := Finset.mem_image.mp hv
-      have notM : r ∉ M := fun m => distinct r ((member.mp m).trans hr.symm)
-      have unique (a : E) (h : a ∈ insert r M) (ar : report a = v) : a = r := by
-        rcases Finset.mem_insert.mp h with eq | mem
-        · exact eq
-        · exact False.elim (distinct a ((member.mp mem).trans ar.symm))
-      have h := use (insert r M) (fun a mem => by
-        rcases Finset.mem_insert.mp mem with rfl | hm
-        · exact Or.inr hr
-        · exact Or.inl (member.mp hm))
-        (fun a ha b hb ar br => (unique a ha ar).trans (unique b hb br).symm)
-      simpa [hv,Finset.card_insert_of_notMem notM,card] using h
-    · have h := use M (fun _ hm => Or.inl (member.mp hm))
-        (fun a ha _ _ ar _ => False.elim (distinct a ((member.mp ha).trans ar.symm)))
-      simpa [hv,card] using h
+  have cost := partitionLocal label select row col rect cross miss report diag distinct force base
   have h := aggregate miss report price cost
   have sum : (∑ v, price v) = Fintype.card B := by
     rw [← Fintype.card_sigma]; exact Fintype.card_congr (Equiv.sigmaFiberEquiv label)
@@ -216,6 +230,10 @@ def Tree.leaves {V : Type} : Tree V → ℕ
   | .raw _ => 1
   | .gate _ a b => a.leaves+b.leaves
 
+def Tree.cost {V : Type} (weight : V → ℕ) : Tree V → ℕ
+  | .raw v => weight v
+  | .gate _ a b => a.cost weight + b.cost weight
+
 structure Protocol (V X Y : Type) where
   size : ℕ
   label : Fin size → V
@@ -226,17 +244,17 @@ structure Protocol (V X Y : Type) where
 
 -- Row and column tests are independent. This construction permits two
 -- disjoint occurrences of the same raw variable to carry different blocks.
-theorem tree_protocol {V X Y : Type} (T : Tree V) (px : X → V → Bool) (ny : Y → V → Bool) :
-    ∃ P : Protocol V X Y, P.size=T.leaves ∧
+theorem tree_protocol_cost {V X Y : Type} (T : Tree V) (weight : V → ℕ) (px : X → V → Bool) (ny : Y → V → Bool) :
+    ∃ P : Protocol V X Y, P.size=T.leaves ∧ (∑ i, weight (P.label i)) = T.cost weight ∧
       ∀ e t, T.val (px e)=true → T.val (ny t)=false →
         px e (P.label (P.start e t))=true ∧ ny t (P.label (P.start e t))=false := by
   induction T with
   | raw v =>
     exact ⟨⟨1,fun _ => v,fun _ _ => 0,fun _ _ => true,fun _ _ => true,
-      fun e t b => by fin_cases b; simp⟩,rfl,fun _ _ h q => ⟨h,q⟩⟩
+      fun e t b => by fin_cases b; simp⟩,rfl,by simp [Tree.cost],fun _ _ h q => ⟨h,q⟩⟩
   | gate op a b ia ib =>
-    obtain ⟨A,sa,ha⟩ := ia
-    obtain ⟨B,sb,hb⟩ := ib
+    obtain ⟨A,sa,ca,ha⟩ := ia
+    obtain ⟨B,sb,cb,hb⟩ := ib
     let E := finSumFinEquiv (m:=A.size) (n:=B.size)
     let onA := fun e t => if op then a.val (px e) else !(a.val (ny t))
     let start := fun e t => E (if onA e t then Sum.inl (A.start e t) else Sum.inr (B.start e t))
@@ -255,11 +273,21 @@ theorem tree_protocol {V X Y : Type} (T : Tree V) (px : X → V → Bool) (ny : 
       | inr j =>
         cases op <;> cases x : a.val (px e) <;> cases y : a.val (ny t) <;>
           simp [start,onA,row,col,x,y,B.block]
-    refine ⟨⟨A.size+B.size,lab,start,row,col,rect⟩,by simp [Tree.leaves,sa,sb],?_⟩
+    have cost : (∑ i, weight (lab i)) = (Tree.gate op a b).cost weight := by
+      rw [← Equiv.sum_comp E, Fintype.sum_sum_type]
+      simpa [lab, Tree.cost] using congrArg₂ Nat.add ca cb
+    refine ⟨⟨A.size+B.size,lab,start,row,col,rect⟩,by simp [Tree.leaves,sa,sb],cost,?_⟩
     intro e t on off
     change px e (lab (start e t))=true ∧ ny t (lab (start e t))=false
     cases op <;> cases x : a.val (px e) <;> cases y : a.val (ny t) <;>
       simp_all [Tree.val,lab,start,onA]
+
+theorem tree_protocol {V X Y : Type} (T : Tree V) (px : X → V → Bool) (ny : Y → V → Bool) :
+    ∃ P : Protocol V X Y, P.size=T.leaves ∧
+      ∀ e t, T.val (px e)=true → T.val (ny t)=false →
+        px e (P.label (P.start e t))=true ∧ ny t (P.label (P.start e t))=false := by
+  obtain ⟨P,len,_,spec⟩ := tree_protocol_cost T (fun _ => 1) px ny
+  exact ⟨P,len,spec⟩
 
 -- Interface to the negative tests: at the cross of f, every other row meeting
 -- f at v must report v. The extra witness is only needed for singleton fibers.
