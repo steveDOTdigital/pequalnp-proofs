@@ -18,6 +18,23 @@ Every input remains essential when another raw input is fixed to either controll
 
 A second raw-pair gate would duplicate the first. Reusing one of its operands with its output gives an alias by absorption. Otherwise the second gate combines the first output with a different raw input `c`. Its sole reader must be OR, but `c` remains essential even when `16 OR 22` is true. If `c` is a point, activate line 16 and any line containing `c`, initially with no points. If `c` is another line, activate line 16 and a point of `c` outside line 16. Toggling `c` changes the target in each construction. The proposed OR reader masks that change. There is no admissible second gate.
 
-The implementation also enumerates the first two gates for active induced subgraphs obtained by deleting up to three vertices. At order 21 it strengthens 60 of 1,997 active masks. It checks 275 masks at order 22, all 24 at order 23 and raises the full lower bound to 38. This computation does not close budgets 38 through 53.
+The implementation also enumerates the first two gates for active induced subgraphs obtained by deleting up to three vertices. At order 21 it strengthens 60 of 1,997 active masks. It checks 275 masks at order 22, all 24 at order 23 and raises the full lower bound to 38. A depth-four run also checked 10,279 active masks at order 20 and strengthened 162 of their bounds. The full lower bound remained 38.
 
 Build the C++17 source with optimization and run the binary with argument `3` to replay this calculation.
+
+## At least three flags require repeated leaves in a 53-gate circuit
+
+A flag is a positive input with just one incident point and line switched on. On that input a proof of truth selects one child at each OR and both children at each AND, unfolding shared uses separately. Call a flag simple if some proof has exactly two leaves. Both endpoints must occur, since a proof using a single endpoint would also accept a singleton.
+
+Let D be the set of simple flags and r the number of AND gates without an OR-only path from their output to the circuit output. When there is a nonsimple flag, r is positive. To see this, take the earliest true AND in a topological listing on that flag. Such an AND exists because an OR-only path from a true raw input to the output would accept a singleton. Both operands of this first true AND have a true OR-only path from a raw input. If the AND had an OR-only path to the output, these paths would give a proof with two leaves.
+
+For nonempty D and positive r, the gate count s satisfies
+
+$$
+s \ge |D| + \tau(D) + r.
+$$
+Here τ(D) is the minimum size of a vertex cover of the simple flags. Start with a live circuit by discarding gates outside the output cone. Mark the output network reached backwards through ORs, stopping at the first ANDs. Keep the raw OR-only expansion of each marked AND operand, substituting zero at every AND encountered in these expansions. This flat circuit accepts exactly the simple flags on pairs and still rejects every nonedge and singleton. The [flat-circuit count](plane-rectangle-separation.md#a-sharp-bound-for-flags-with-two-leaf-proofs) requires at least |D| + τ(D) − 1 gates. In brief, each productive AND yields a star. Assign each simple flag to one covering star. For a center owning m flags through t stars, at least m − t raw OR gates merge the distinct neighbors into those stars. A gate counted at two centers would combine two common neighbors, impossible here. The star ANDs and the output ORs supply the remaining gates.
+
+The flattening removes all r unmarked ANDs **and at least one more gate**. Choose the last unmarked AND in topological order. Its output feeds a successor because the circuit is live. This successor cannot be a marked OR, which would give the chosen AND an OR-only path to the output. It cannot be another unmarked AND by the choice of order. If it is a marked AND, one operand becomes zero, eliminating the gate. If it is an unmarked OR, then in the raw expansion its chosen input is zero, so the OR contracts to its other input or disappears altogether. This OR is never needed in the marked output network. Thus flattening costs at least r + 1 original gates. Marked ORs reachable inside a raw expansion have zero expansion because their raw OR-only paths would accept singletons. Consequently shared marked gates require no duplication in this construction.
+
+For 44 simple flags, the flat count alone gives 54 gates. If 42 or 43 flags are simple, every cover has at least 11 vertices because each vertex covers at most four flags. With r ≥ 1 the stronger count again gives at least 54 gates. Therefore **every circuit of at most 53 gates has at least three flags on which every proof of truth repeats an endpoint**. The argument allows arbitrary sharing. It leaves open whether a circuit exhibiting those repetitions exists.
