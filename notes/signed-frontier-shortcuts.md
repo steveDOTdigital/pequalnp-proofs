@@ -12,7 +12,7 @@ For each wire, store its truth word in thirteen 64-bit lanes and the correspondi
 
 When m distinct wires remain and only m−1 binary gates are available, every wire must be used. A first gate merges two wires and leaves a suffix that is tight again. Working backward from the output shows that its two operands depend on disjoint nonempty parts of the initial wires.
 
-For a proposed partition, an AND root is impossible if one negative row agrees with a positive row on the first part and with a possibly different positive row on the second. Reversing the two colors rules out an OR root. This also covers complemented operands. If every partition fails both tests, the state can be discarded. [Lean verifies this necessary condition](SignedRootSplit.lean).
+For a proposed partition, an AND root is impossible if one negative row agrees with a positive row on the first part and with a possibly different positive row on the second. Reversing the two colors rules out an OR root. This also covers complemented operands. If every partition fails both tests, the state can be discarded. [Lean verifies this necessary condition](SignedRootSplit.lean). The [executable rejection test](SignedRootRejection.lean) enumerates the partitions and checks the opposite-colored rows with 64-bit intersections. Lean proves that a rejected state has no continuation within its gate budget.
 
 [The reproducible prism calculation](signed-prism-root-split.py) starts from the existing public frontier. It applies the partition test and follows the surviving transitions. A separate native generation with the same test gave the same counts.
 
