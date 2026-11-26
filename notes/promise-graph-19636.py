@@ -1,7 +1,6 @@
 """Exact synthesis on the 25 promised inputs of L-meta-19636. Requires python-sat."""
 import argparse
 from itertools import combinations
-from pysat.solvers import Solver
 
 MASK = 8130428
 UPPER = [(1,5,6),(1,8,9),(1,4,10),(1,2,12),(1,0,11),
@@ -158,6 +157,7 @@ def supports():
 
 
 def search(size,backend,one_case):
+    from pysat.solvers import Solver
     e = Encoding(size)
     cases = [m for m in supports() if m.bit_count() <= size+1]
     if one_case is not None:
@@ -178,6 +178,7 @@ def search(size,backend,one_case):
 
 def search_nine(backend):
     """Use the checked monotone lower bound and the independent formula exclusion."""
+    from pysat.solvers import Solver
     assert not has_small_formula(9)
     e = Encoding(9)
     negations = [ops[2] for _, _, ops in e.ports]
