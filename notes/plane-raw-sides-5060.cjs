@@ -429,3 +429,193 @@ assert.deepEqual([...pointSizes], ["3,3,3,3,3"]);
 // The exterior-edge test excludes the 24 case. The single spare row
 // argument in the note excludes the remaining asymmetric case at 28.
 console.log("Remaining size-28 counts", crossChecked.filter(r => r[0] === 14 && r[1] === 14));
+
+// Enumerate loads of the extra mixed sides on one fourteen-vertex shore.
+// A profile digit counts complex members of one pure group sent to one side.
+// A zero denotes one simple member and consumes no extra mixed-side capacity.
+function fourteenProfiles(mixedCount, pureCount) {
+  const outcomes = new Set();
+  const loads = Array(mixedCount - 14).fill(0);
+  function collect(left, pureLeft, maximum, groups) {
+    if (left === 0) {
+      outcomes.add(groups.slice().sort().join("/") + ":" + loads.slice().sort().join(""));
+      return;
+    }
+    if (!pureLeft) return;
+    for (let size = Math.min(maximum, left); size > 0; size--) {
+      for (const profile of profiles[size]) {
+        const parts = [...profile].map(Number).filter(Boolean);
+        function place(part, used) {
+          if (part === parts.length) {
+            collect(left - size, pureLeft - 1, size, [...groups, profile]);
+            return;
+          }
+          for (let row = 0; row < loads.length; row++) {
+            if ((used & (1 << row)) || loads[row] + parts[part] > 3) continue;
+            loads[row] += parts[part];
+            place(part + 1, used | (1 << row));
+            loads[row] -= parts[part];
+          }
+        }
+        place(0, 0);
+      }
+    }
+  }
+  collect(14, pureCount, 6, []);
+  return [...outcomes].sort();
+}
+
+assert.deepEqual(fourteenProfiles(16, 4), [
+  "000/000/000/23:23", "000/000/001/23:33", "000/000/012/012:33"
+]);
+const eighteenProfiles = fourteenProfiles(18, 3);
+assert(eighteenProfiles.length > 0);
+assert.deepEqual([...new Set(eighteenProfiles.map(s => s.split(":")[1]))].sort(), ["2333", "3333"]);
+for (const layout of eighteenProfiles) {
+  const sizes = layout.split(":")[0].split("/").map(group =>
+    [...group].reduce((total, digit) => total + (Number(digit) || 1), 0));
+  assert(sizes.every(size => size >= 3));
+}
+// No group of five having the profile 23 has four points on one line.
+const fiveGroups = reps[5].filter(group => pureGroupProfiles(group).has("23"));
+assert.equal(fiveGroups.length, 3);
+assert.deepEqual(fiveGroups.map(group => Math.max(...linePoints.map(line => count(line & group)))).sort(),
+                 [2, 3, 3]);
+
+function commonGatePerComponent(edges) {
+  const parent = Array.from({ length: 28 }, (_, index) => index);
+  function root(vertex) {
+    while (parent[vertex] !== vertex) vertex = parent[vertex];
+    return vertex;
+  }
+  // The two endpoints must use the same internal gate on this incidence.
+  for (const edge of edges) {
+    if (edge.forcedPoint && edge.forcedLine) parent[root(edge.point)] = root(edge.line + 14);
+  }
+  const allowed = new Map();
+  for (const edge of edges) {
+    if (!edge.forcedPoint && !edge.forcedLine) continue;
+    const id = root(edge.forcedPoint ? edge.point : edge.line + 14);
+    const previous = allowed.get(id);
+    const common = previous ? previous.filter(gate => edge.options.includes(gate)) : edge.options;
+    if (!common.length) return false;
+    allowed.set(id, common);
+  }
+  return true;
+}
+
+// A three-edge path tests propagation of the one-internal-gate constraint.
+const pathControl = [[0, 0], [1, 0], [1, 1]].map(([point, line]) =>
+  ({ point, line, forcedPoint: true, forcedLine: true, options: [3, 9] }));
+assert(commonGatePerComponent(pathControl));
+assert(!commonGatePerComponent(pathControl.map((edge, i) =>
+  ({ ...edge, options: i === 0 ? [3] : i === 2 ? [9] : edge.options }))));
+
+function checkFourteenMixed() {
+  const full = (1 << 21) - 1;
+  const seen = new Set();
+  const stats = { systems: 0, extensions: 0, layouts: 0, componentPass: 0 };
+  const bit = i => 1 << i;
+
+  function testLayout(points, lines, pointGroups, lineGroups, extraPoint, extraLine) {
+    stats.layouts++;
+    // Sides 0..13 are the matched mixed sides. The other ten are the
+    // five pure groups of each shore, with its two-member group last.
+    const sides = Array.from({ length: 24 }, () => [0, 0]);
+    for (let i = 0; i < 14; i++) sides[i] = [bit(i), bit(i)];
+    pointGroups.forEach((group, i) => { sides[14 + i][0] = mask(group); });
+    lineGroups.forEach((group, i) => { sides[19 + i][1] = mask(group); });
+    const mandatory = sides.map(side => side.slice());
+    if (points.includes(extraPoint)) sides[18][0] |= bit(points.indexOf(extraPoint));
+    if (lines.includes(extraLine)) sides[23][1] |= bit(lines.indexOf(extraLine));
+
+    const pCore = mask(points), lCore = mask(lines);
+    const labelsFor = (vertex, shore) => sides.flatMap((s, i) => s[shore] & bit(vertex) ? [i] : []);
+    const pSources = points.map((_, i) => labelsFor(i, 0));
+    const lSources = lines.map((_, i) => labelsFor(i, 1));
+    // An exterior neighbor other than the optional intersection vertex
+    // needs a gate with one side outside these 24 retained sides.
+    const forcedPoints = points.map((v, i) =>
+      pSources[i].length === 2 && !!(pointLines[v] & ~(lCore | bit(extraLine)) & full));
+    const forcedLines = lines.map((v, i) =>
+      lSources[i].length === 2 && !!(linePoints[v] & ~(pCore | bit(extraPoint)) & full));
+
+    const edges = [];
+    for (let i = 0; i < 14; i++) for (let j = 0; j < 14; j++) {
+      if (!(pointLines[points[i]] & bit(lines[j]))) continue;
+      const options = [];
+      for (const a of pSources[i]) for (const b of lSources[j]) {
+        // For disjointness use only mandatory reads. This grants the search
+        // both possibilities for an optional read on the two-member side.
+        if (a === b || (mandatory[a][0] & mandatory[b][0]) || (mandatory[a][1] & mandatory[b][1])) continue;
+        options.push(32 * Math.min(a, b) + Math.max(a, b));
+      }
+      if (!options.length) return;
+      edges.push({ point: i, line: j, forcedPoint: forcedPoints[i], forcedLine: forcedLines[j], options });
+    }
+    if (commonGatePerComponent(edges)) stats.componentPass++;
+  }
+
+  enumerateFourTriangles(triangles => {
+    const key = triangles.map(t => t.points).sort((a, b) => a - b).join(",");
+    if (seen.has(key)) return;
+    seen.add(key);
+    stats.systems++;
+    const basePoints = triangles.flatMap(t => t.p), baseLines = triangles.flatMap(t => t.l);
+    const pointGroups = [[0,1,2], [3,4,5], [6,7,8], [9,10,11], [12,13]];
+    const unusedPoints = members(full ^ mask(basePoints)), unusedLines = full ^ mask(baseLines);
+
+    for (let i = 0; i < unusedPoints.length; i++) for (let j = i + 1; j < unusedPoints.length; j++) {
+      const u = unusedPoints[i], v = unusedPoints[j];
+      const points = [...basePoints, u, v], pointSet = mask(points);
+      // All joins inside the four triangles are already core lines. Of the
+      // joins inside the two-member side, only join(u,v) can be exterior.
+      const exception = join(u, v);
+      let required = 0;
+      for (const line of members(unusedLines)) {
+        const neighbors = count(linePoints[line] & pointSet);
+        if (neighbors > 3 && (neighbors > 4 || line !== exception)) required |= bit(line);
+      }
+      if (count(required) > 2) continue;
+      for (const a of members(unusedLines & pointLines[v])) for (const b of members(unusedLines & pointLines[u])) {
+        if (a === b || (required & ~(bit(a) | bit(b)))) continue;
+        stats.extensions++;
+        const lines = [...baseLines, a, b], lineSet = mask(lines);
+        const extraPoint = members(linePoints[a] & linePoints[b])[0];
+        const overloaded = members(full ^ pointSet).filter(x => count(pointLines[x] & lineSet) > 3);
+        if (overloaded.length > 1 || overloaded.some(x => count(pointLines[x] & lineSet) > 4)) continue;
+        const mutual = points.map((pt, x) => mask(lines.flatMap((line, y) =>
+          x !== y && (pointLines[pt] & bit(line)) && (pointLines[points[y]] & bit(lines[x])) ? [y] : [])));
+
+        // A line group is a clique in the mutual-incidence relation on
+        // matched indices. Generate each unordered partition by its least
+        // unused index and leave the pair until last in the resulting array.
+        function partition(left, triples, pair) {
+          if (!left) {
+            assert(pair && triples.length === 4);
+            const extraLine = join(points[pair[0]], points[pair[1]]);
+            testLayout(points, lines, pointGroups, [...triples, pair], extraPoint, extraLine);
+            return;
+          }
+          const first = 31 - Math.clz32(left & -left), rest = left ^ bit(first);
+          for (const second of members(rest & mutual[first])) {
+            const others = rest ^ bit(second);
+            if (!pair && (!overloaded.length ||
+                (linePoints[lines[first]] & linePoints[lines[second]] & bit(overloaded[0])))) {
+              partition(others, triples, [first, second]);
+            }
+            if (triples.length < 4) for (const third of members(others & mutual[first] & mutual[second])) {
+              if (third > second) partition(others ^ bit(third), [...triples, [first, second, third]], pair);
+            }
+          }
+        }
+        partition((1 << 14) - 1, [], null);
+      }
+    }
+  });
+  return stats;
+}
+const fourteen = checkFourteenMixed();
+assert.deepEqual(fourteen, { systems: 68624, extensions: 2781088, layouts: 1245674, componentPass: 0 });
+console.log("Fourteen mixed sides at 28 variables", fourteen);
+
