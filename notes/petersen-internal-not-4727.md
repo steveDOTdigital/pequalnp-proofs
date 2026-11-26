@@ -2,7 +2,7 @@
 
 [L-meta-4727](https://pequalnp.com/lemma#L-meta-4727) asks whether a circuit with at most 19 gates and between one and four NOT gates can compute the Petersen edge function. Its opposite is [L-meta-4728](https://pequalnp.com/lemma#L-meta-4728). The positive proposition is the lower bound. Our search compares all 1,024 input rows, using the [same 15 labeled edges](petersen-unary-input.md) as our 17-signed-gate exclusion. The catalogue gives statement hash `sha256:d8fea2ed197a6599de5fbeb4a88f12fb16067a1334adc8b5e9306341621a3f5f`.
 
-The enumeration is in progress. At 11:33 UTC on 26 November, 1,226 cases had finished on the first pass and another 24 on retry. In all, 1,250 of 1,581 cases were excluded. The remaining 331 cases keep the exact desk claim open.
+The enumeration is in progress. At 12:00 UTC on 26 November, 1,398 cases had finished on the first pass and another 39 on retry. In all, at least 1,437 of 1,581 cases were excluded. The exact desk claim remains open.
 
 ## Which circuit could survive?
 
@@ -45,5 +45,34 @@ Choose distinct hidden vertices a and b. Choose each of U and V to be the OR of 
 For example, take a=0, U=x1 OR x2, b=3, V=x1 OR x4. The input sets {0,5}, {2,5}, {2,3,5}, {2,4,5} are ordered on every retained feature. The first contains edge (0,5), the third contains edge (2,3), and the second and fourth are independent. These four assignments alone exclude a one-NOT suffix.
 
 The [independent replay](petersen-frontier-4727.py) performs two exact checks on every orbit. The first finds the largest number of drops along paths in the feature order. When a visible raw bit rises, a hidden coordinate may fall exactly when its companion OR changes from zero to one. Such falls may happen together. A hidden increase can always be performed separately. Any pair of ordered feature vectors can be connected by these moves: increase the visible bits in any order, perform each required hidden decrease when its companion first rises, and make any remaining hidden increases at the end. Each companion changes at most once, giving at most two drops. The second check independently computes the upper and lower sets of every negative vector using all 1,024 rows and tests directly for a four-row obstruction.
+
+## What a single wire must retain
+
+Let A contain at least two private input vertices. Suppose the rest of the circuit can see the inputs outside A and one bit H, and every influence of A reaches the output through H. For any proposed set B of outside inputs available to H, such a representation exists **exactly when B contains every outside neighbor of A**. This holds for arbitrary Boolean gates and any number of NOTs.
+
+For sufficiency, H reports whether an edge incident to A has both endpoints on. All the inputs this needs belong to A or its outside neighborhood. The rest of the circuit also checks edges disjoint from A.
+
+For necessity, suppose H cannot see an outside neighbor u. Choose its neighbor a in A and another vertex b in A. Fix all other inputs as below. As a and b vary, the output on the two settings of u takes three different pairs of values: (0,0), (0,1) and (1,1). With H independent of u, its single bit could select only two functions of u.
+
+* If a and b are adjacent, fix all other vertices besides a, b and u to zero. Set the private pair successively to the empty set, {a}, and {a,b}.
+* If a and b are nonadjacent, choose a neighbor w of b adjacent to neither a nor u, with w different from u. Such a choice exists: b has three neighbors. The nonadjacent pair a,b has one common neighbor. If b,u are nonadjacent they too have only one common neighbor. If b,u are adjacent they have none, and u itself was already removed as a common neighbor of a,b. Set w to one, the other fixed vertices to zero, and select the empty set, {a}, then {b}. The three functions of u are again zero, u and one.
+
+In particular H must depend on every vertex of A and every outside neighbor. The inputs in A are essential to the Petersen function and have no other route to the output. A connected circuit depending on k distinct raw inputs needs at least k−1 binary gates even with free unary gates. Thus a wire that gathers a private adjacent pair requires at least five binary gates in its input cone. A private nonadjacent pair requires at least six. For a private triple the bound is seven, eight or nine gates, attained as a *support bound* by 90, 20 and 10 choices of triple respectively. These are lower bounds on the cone's size.
+
+Direct evaluation on the 1,024-row Petersen table verified all 210 private-pair/outside-neighbor obstructions. Choosing a private pair for each larger set gives 4,450 set-and-neighbor obstructions in total, including the pairs. In the 18-reader profiles of the main search there is only one shared intermediate. This theorem applies to its input cone whenever at least two raw variables have no reads outside that cone. The existing search already checks whether the resulting one-bit factorization is possible on its truth table, so these obstructions are not counted a second time.
+
+### Exact cost for a private pair
+
+With fan-in-two AND and OR gates and free NOTs, the minimum binary cost of H is **six for an adjacent pair and seven for a nonadjacent pair**. This is the cost of the single signal that carries both private inputs. Gates used by the rest of the circuit are outside this cost.
+
+To attain six for an adjacent pair a,b, name their other neighbors p,q and r,s. Use H = (a AND (b OR p OR q)) OR (b AND (r OR s)). For a nonadjacent pair, let c be their common neighbor, and let p,q and r,s be their other neighbors. Use H = (a AND (c OR p OR q)) OR (b AND (c OR r OR s)). The second circuit costs seven binary gates. Each H reports exactly the edges incident to the pair.
+
+The support bounds above leave just one smaller budget in each case. A circuit on k essential variables using k−1 binary gates has a tree as its connected input cone after unary gates are suppressed. Each variable appears once. Pushing negations down gives an AND/OR formula with signed leaves. Fix all variables except a and b. Whenever the target is nonconstant as a function of these two inputs, the signal H must equal that two-input function or its complement: after fixing the outside inputs the suffix sees just one bit. In a read-once formula, whenever both variables remain essential, all side subtrees on their paths specialize to neutral values. The operation at their lowest common ancestor and their literal signs are fixed.
+
+For adjacent a,b, setting every other input to zero leaves a AND b. Turning on p and r instead leaves a OR b. The vertices p and r cannot be adjacent because the Petersen graph has no four-cycle. The two possible encodings of AND and the two possible encodings of OR are disjoint. A read-once H cannot supply both.
+
+For nonadjacent a,b, turn on p alone, then p and c. This changes the private function from a to a OR b. Turning on r alone, then r and c, changes it from b to a OR b. The visible inputs in each pair are independent because the graph has no triangles. In the formula tree let L be the lowest common ancestor of a and b. All four restrictions leave H nonconstant, so gates above L pass its value. At L the other branch can never block an essential private input by taking a controlling constant, since this would make the whole output constant on the pair. Thus changing c in the first comparison must change whether the b branch of L depends on b, and in the second it must change whether the a branch depends on a. A single leaf c cannot occur in both branches. This rules out the last smaller budget.
+
+The displayed cofactors were checked on all 45 labeled pairs. An independent finite enumeration also excluded every read-once monotone encoding for one representative of each pair type after orienting the output. In this enumeration every required variable has two forced rows witnessing a positive rise, so a signed read-once encoding could only be monotone after that orientation. Both upper-bound circuits were checked directly on all 1,024 inputs.
 
 Run `python petersen-internal-not-4727.py` with a C++17 compiler. Set `CXX` to a compiler path if necessary. For a Zig installation, set `PETERSEN_ZIG` to the executable and optionally set `PETERSEN_TARGET`. To retry a case, pass `--case PROFILE OP A B --seconds N`. All inputs to that case stay identical apart from the time limit. The independent checks cover all 1,024 rows for 2,756 possible marker functions and both physical orientations on each binary truth table.
