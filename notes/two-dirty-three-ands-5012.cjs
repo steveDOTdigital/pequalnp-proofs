@@ -68,7 +68,7 @@ for(let g=1;g<=8;g++) {
   }
   shapes.push(list);
 }
-function search(n,g,records,stopOnWitness=false) {
+function search(n,g,records,stopOnWitness=false,allTypes=false) {
   const L=g+1, total=L+g, root=total-1, r=L-n;
   const inputs=Array.from({length:n},(_,i)=>1<<i);
   const rows=[...inputs];
@@ -100,7 +100,11 @@ function search(n,g,records,stopOnWitness=false) {
     const alias=new Int16Array(L), rawId=new Int16Array(L), marked=[], choices=[];
     const deps=new Int16Array(g), order=new Int16Array(g), sig=new Int32Array(total), bit=new Int8Array(total);
     const rootBit=1<<(g-1); const colors=[];
-    for(let i=0;i<g-1;i++)for(let j=0;j<i;j++)colors.push(rootBit|(1<<i)|(1<<j));
+    if (allTypes) {
+      for (let mask=0; mask<(1<<g); mask++) if (pop(mask)>=3) colors.push(mask);
+    } else {
+      for(let i=0;i<g-1;i++)for(let j=0;j<i;j++)colors.push(rootBit|(1<<i)|(1<<j));
+    }
     function evaluate(){
       for(let w=L;w<total;w++){
         const i=baseA[w],j=baseB[w];a[w]=i<L?alias[i]:i;b[w]=j<L?alias[j]:j;
@@ -166,4 +170,23 @@ for(const n of new Set(targets.map(([a,b])=>a+b))) {
     console.log(JSON.stringify(result));
     assert.equal(result.dirtyTwo,0);
   }
+}
+
+// A cover of size three on six vertices forces two shores of size three.
+// Keep every labeled graph exceeding the n-gate bound, without a clause-count limit.
+const sixTargets=[];
+for(let mask=0;mask<512;mask++){
+  const rows=[mask&7,(mask>>3)&7,(mask>>6)&7];
+  if(rows.includes(0)||columns(rows,3).includes(0))continue;
+  if(rows.some((r,i)=>rows.slice(0,i).some(s=>pop(r&s)>1)))continue;
+  let cover=3;
+  for(let s=0;s<8;s++) cover=Math.min(cover,pop(s)+rows.filter(r=>r&~s).length);
+  const upper=pop(mask)+cover-1;
+  if(upper>6)sixTargets.push([3,3,rows,upper]);
+}
+const maxSix=Math.max(...sixTargets.map(x=>x[3]));
+for(let g=7;g<=maxSix;g++){
+  const result=search(6,g,sixTargets,false,true);
+  console.log("All gate placements",JSON.stringify(result));
+  assert.equal(result.dirtyTwo,0);
 }
