@@ -2,7 +2,7 @@
 
 [L-meta-4727](https://pequalnp.com/lemma#L-meta-4727) asks whether a circuit with at most 19 gates and between one and four NOT gates can compute the Petersen edge function. Its opposite is [L-meta-4728](https://pequalnp.com/lemma#L-meta-4728). The positive proposition is the lower bound. Our search compares all 1,024 input rows, using the [same 15 labeled edges](petersen-unary-input.md) as our 17-signed-gate exclusion. The catalogue gives statement hash `sha256:d8fea2ed197a6599de5fbeb4a88f12fb16067a1334adc8b5e9306341621a3f5f`.
 
-The enumeration is in progress. In the first 675 cases, 655 finished on the first pass and two more finished on retry. The remaining cases still matter to the exact desk claim. This checkpoint adds zero to the proved total.
+The enumeration is in progress. At 11:33 UTC on 26 November, 1,226 cases had finished on the first pass and another 24 on retry. In all, 1,250 of 1,581 cases were excluded. The remaining 331 cases keep the exact desk claim open.
 
 ## Which circuit could survive?
 
@@ -24,6 +24,26 @@ For a fixed mark, all physical wires are monotone within each level of H. Both l
 
 One detail matters when adapting the signed enumerator. If H=a AND b, the physically legal gate a AND (NOT H) uses an operand of its other argument. Rewriting it as a AND (NOT b) could introduce a second distinct complemented wire. The replay explicitly allows these adjacent reads. When pinning a raw input, it charges only one guaranteed extra gate for one or more direct readers forced to a constant. Follow any forced signal to a consumer. If that consumer reads the pinned raw input directly it too becomes constant. Since the cofactor is nonconstant and all original gates are live, some consumer outside the direct-reader set must eventually fold. This justifies the one extra charge without an adjacency assumption. All unchanged signed restriction and separation tests are necessary conditions on the unrestricted signed representation.
 
+A verified first-gate exclusion also excludes that same raw AND or OR anywhere in a candidate with the same raw-reader profile. Both operands are raw, so the gate can be scheduled first, preserving the marked inversion even when it is this gate's complement. Each graph automorphism preserving the profile transports the exclusion to its entire orbit. The retry option `--exclude-verified PROFILE OP A B` removes only these proved raw-gate orbits. Each strengthened retry records the bit mask of previously verified first-gate cases on which it relies. Replaying those dependencies in verification order keeps the argument acyclic.
+
 The 20-gate ordinary star construction is the positive control. The solver decodes and independently evaluates it on every row before enumerating the lower-bound cases. A timeout leaves its case open; only completed exclusions count.
+
+## What one NOT can recover from earlier wires
+
+At any cut, record the Boolean features still available to the rest of the circuit. Order two raw assignments x and y by componentwise comparison of their feature vectors, writing x ≼ y. Assume the target is determined by these features, so equal feature vectors have equal target values.
+
+There is a suffix of unrestricted size with at most one NOT **if and only if** there is no chain p ≼ i ≼ q ≼ j with target values 1, 0, 1, 0. For necessity, cut the suffix at its NOT input H. On each of the two drops the monotone H must rise from 0 to 1, since otherwise every physical input to the monotone remainder increases. Monotonicity between i and q makes two such rises impossible.
+
+For sufficiency, call a negative feature vector bad if a positive vector lies below it. Let H be the indicator of the upward closure of all bad negatives. Every bad negative has H=1. Every positive below a bad negative has H=0, since a bad negative below that positive would supply the forbidden four-row chain. Thus for every formerly ordered positive-negative pair, the extra coordinate NOT H is 1 on the positive and 0 on the negative. In the enlarged feature space no positive lies below a negative. The upward closure of the positive vectors now computes the target. Both upward closures are monotone Boolean functions on the whole feature cube. A monotone disjunction of conjunctions realizes each one.
+
+### Two hidden Petersen coordinates
+
+Choose distinct hidden vertices a and b. Choose each of U and V to be the OR of two of the eight visible raw variables, allowing U=V. Suppose the only uses of a are as an operand of a AND U or a OR U, and similarly the only uses of b are in b AND V or b OR V. Give the suffix both of each pair of outputs and all eight visible variables, with no size or fanout restriction. This contains any circuit with the stated raw-reader pattern, even if some permitted outputs were never used. Its feature vector determines the entire raw input: when U=0 its OR output reveals a, and when U=1 its AND output reveals a. The same recovers b.
+
+**32,190 of the 35,280 labeled configurations require at least two NOT gates**, excluding them from the remaining one-NOT Petersen case at every gate budget. In the other 3,090, one NOT suffices with unrestricted size. Their 18-binary-gate question still depends on the main search. The configurations are grouped into 290 and 36 graph automorphism orbits, respectively. This is a classification of circuit patterns, so its counts cannot be added to the main search totals.
+
+For example, take a=0, U=x1 OR x2, b=3, V=x1 OR x4. The input sets {0,5}, {2,5}, {2,3,5}, {2,4,5} are ordered on every retained feature. The first contains edge (0,5), the third contains edge (2,3), and the second and fourth are independent. These four assignments alone exclude a one-NOT suffix.
+
+The [independent replay](petersen-frontier-4727.py) performs two exact checks on every orbit. The first finds the largest number of drops along paths in the feature order. When a visible raw bit rises, a hidden coordinate may fall exactly when its companion OR changes from zero to one. Such falls may happen together. A hidden increase can always be performed separately. Any pair of ordered feature vectors can be connected by these moves: increase the visible bits in any order, perform each required hidden decrease when its companion first rises, and make any remaining hidden increases at the end. Each companion changes at most once, giving at most two drops. The second check independently computes the upper and lower sets of every negative vector using all 1,024 rows and tests directly for a four-row obstruction.
 
 Run `python petersen-internal-not-4727.py` with a C++17 compiler. Set `CXX` to a compiler path if necessary. For a Zig installation, set `PETERSEN_ZIG` to the executable and optionally set `PETERSEN_TARGET`. To retry a case, pass `--case PROFILE OP A B --seconds N`. All inputs to that case stay identical apart from the time limit. The independent checks cover all 1,024 rows for 2,756 possible marker functions and both physical orientations on each binary truth table.

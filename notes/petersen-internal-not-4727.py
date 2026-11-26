@@ -157,6 +157,34 @@ def verify_slices():
         assert canonical^(1^flip_output)==(a^sa^1)|(b^sb^1)
     print('Verified slice boundaries on all 1024 rows for',len(markers),'markers.',flush=True)
 
+def omit_verified_raw_orbits(inp, tag, excluded):
+    """Forbid raw pairs already excluded as first gates at this same profile."""
+    mask,seed=tag
+    excluded_here={gate for profile,gate in excluded if profile==mask}
+    if not excluded_here:
+        return inp
+    if seed in excluded_here:
+        raise ValueError('The case being tested cannot be an exclusion premise.')
+    counts=[1+((mask>>(2*v))&3) for v in range(10)]
+    stabilizer=[g for g in driver['GROUP'] if all(counts[g[v]]==counts[v] for v in range(10))]
+    forbidden=set()
+    for op,a,b in excluded_here:
+        assert op in (0,3)
+        for g in stabilizer:
+            x,y=sorted((g[a],g[b]))
+            forbidden.add((op,x,y))
+    values=list(map(int,inp.split()))
+    assert values[0]==18 and values[3]==mask
+    pos=4+values[2]+2*10+3*45
+    assert values[pos:pos+4]==[1,*seed]
+    pos+=4
+    end=pos+1+3*values[pos]
+    raw=[tuple(values[i:i+3]) for i in range(pos+1,end,3)]
+    keep=[gate for gate in raw if gate not in forbidden]
+    assert seed in keep and len(keep)<len(raw)
+    replacement=[len(keep)]+[v for gate in keep for v in gate]
+    return ' '.join(map(str,values[:pos]+replacement+values[end:]))+'\n'
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--workers',type=int,default=4)
@@ -164,10 +192,15 @@ def main():
     p.add_argument('--slice',type=int,nargs=2)
     p.add_argument('--case',type=int,nargs=4,action='append',
                    metavar=('PROFILE','OP','A','B'),help='rerun a reported unresolved case')
+    p.add_argument('--exclude-verified',type=int,nargs=4,action='append',default=[],
+                   metavar=('PROFILE','OP','A','B'),help='use a previously completed first-gate exclusion')
     args=p.parse_args()
     verify_slices()
     f,l=driver['bounds'](10,False)
     cases=[(tag,inp) for tag,inp in driver['problems'](10,False,18,args.seconds,f,l) if tag[1][0] in (0,3)]
+    excluded={(mask,(op,a,b)) for mask,op,a,b in args.exclude_verified}
+    if not excluded.issubset(tag for tag,_ in cases): p.error('unknown first-gate exclusion')
+    if excluded and not args.case: p.error('select the target cases when using previous exclusions')
     if args.slice: cases=cases[slice(*args.slice)]
     if args.case:
         requested={(mask,(op,a,b)) for mask,op,a,b in args.case}
@@ -182,7 +215,7 @@ def main():
         assert control[-1].startswith('SAT '),control
         def check(case):
             tag,inp=case
-            result=invoke(inp)
+            result=invoke(omit_verified_raw_orbits(inp,tag,excluded))
             return tag,result
         counts=collections.Counter()
         nodes=0
