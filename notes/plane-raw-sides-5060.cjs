@@ -176,7 +176,7 @@ function countCoreSizes(profiles) {
   }
 
   const survivors = [];
-  for (let k = 2; k <= 26; k++) {
+  for (let k = 2; k <= 28; k++) {
     for (let p = Math.ceil(k / 2); p <= Math.min(21, k - 1); p++) {
       const l = k - p;
       for (let mixed = p; mixed + 2 <= k - 4; mixed++) {
@@ -326,6 +326,57 @@ function checkGatePairings(triangles, stats) {
   partition((1 << 12) - 1, []);
 }
 
+// A shore made entirely of simple triples, or the rigid 13-vertex shore,
+// forces each extra side on the opposite shore to serve at most one complex
+// vertex. The proof explains why rows containing three cannot be used there.
+function forcesSingleExtras(size, mixed, pure) {
+  return (mixed === size && size === 3 * pure) ||
+         (size === 13 && mixed === 16 && pure === 3);
+}
+function fitsSingleExtras(size, pure, extra, profiles) {
+  if (!size) return true;
+  if (!pure) return false;
+  for (let h = 1; h <= Math.min(6, size); h++) {
+    for (const profile of profiles[h]) {
+      if (/[23]/.test(profile)) continue;
+      const needed = [...profile].filter(x => x === "1").length;
+      if (needed <= extra && fitsSingleExtras(size - h, pure - 1, extra - needed, profiles)) return true;
+    }
+  }
+  return false;
+}
+
+// In the 13-vertex shore there are three extra labels. Assign each local
+// part to a distinct label, respecting total capacity three at each label.
+function thirteenProfiles(profiles) {
+  const found = new Set();
+  function next(k, groups, largest, room, list) {
+    if (!k) {
+      found.add(list.join("/"));
+      return;
+    }
+    if (!groups) return;
+    for (let h = Math.min(k,largest); h >= 1; h--) for (const profile of profiles[h]) {
+      const parts = [...profile].filter(x => x !== "0").map(Number);
+      function assign(i, occupied) {
+        if (i === parts.length) {
+          next(k-h, groups-1, h, room, [...list,profile]);
+          return;
+        }
+        for (let j = 0; j < room.length; j++) {
+          if ((occupied & (1 << j)) || room[j] < parts[i]) continue;
+          room[j] -= parts[i];
+          assign(i+1, occupied | (1 << j));
+          room[j] += parts[i];
+        }
+      }
+      assign(0,0);
+    }
+  }
+  next(13,3,6,[3,3,3],[]);
+  return [...found];
+}
+
 const reps = pureGroupOrbits();
 const profiles = reps.map(orbits => {
   const result = new Set();
@@ -335,7 +386,20 @@ const profiles = reps.map(orbits => {
 assert.equal(profiles[7].size, 0);
 assert.deepEqual([...profiles[6]], ["222"]);
 const survivors = countCoreSizes(profiles);
-assert.deepEqual(survivors, [[12,12,12,4,4], [13,13,16,3,3], [15,11,15,5,2]]);
+assert.deepEqual(survivors.filter(r => r[0]+r[1] <= 26),
+                 [[12,12,12,4,4], [13,13,16,3,3], [15,11,15,5,2]]);
+assert.deepEqual(thirteenProfiles(profiles), ["222/0111/000"]);
+// Every feasible size-four group supplying a simple member has no line
+// containing all four. A six-point group cannot be collinear either.
+for (const bits of reps[4]) {
+  if (pureGroupProfiles(bits).has("0111")) assert(linePoints.every(line => (line & bits) !== bits));
+}
+const crossChecked = survivors.filter(([p,l,m,a,b]) =>
+  (!forcesSingleExtras(p,m,a) || fitsSingleExtras(l,b,m-l,profiles)) &&
+  (!forcesSingleExtras(l,m,b) || fitsSingleExtras(p,a,m-p,profiles)));
+assert.deepEqual(crossChecked, [
+  [12,12,12,4,4], [14,14,14,5,5], [14,14,16,4,4], [14,14,18,3,3], [15,13,16,5,3]
+]);
 const stats = { layouts: 0, inside: 0, both: 0 };
 const levels = enumerateFourTriangles(tris => checkGatePairings(tris, stats));
 assert.deepEqual(levels, [0,1,11,1266,101165]);
@@ -343,3 +407,25 @@ assert.deepEqual(stats, { layouts: 101165, inside: 2, both: 0 });
 console.log("Pure group representatives by size", reps.map(x => x.length));
 console.log("Surviving counts before gate pairing", survivors);
 console.log("Four-triangle layouts", stats);
+// In the (15,13,16,5,3) case there is one spare point-side label,
+// serving at most one complex point. Check all pure-group sizes compatible
+// with at most one complex point in total.
+const pointSizes = new Set();
+function collectFifteen(left, remaining, largest, budget, sizes) {
+  if (!left) {
+    pointSizes.add(sizes.join(","));
+    return;
+  }
+  if (!remaining) return;
+  for (let h = Math.min(6,largest,left); h > 0; h--) {
+    for (const profile of profiles[h]) {
+      const complex = [...profile].reduce((sum,c) => sum+Number(c), 0);
+      if (complex <= budget) collectFifteen(left-h,remaining-1,h,budget-complex,[...sizes,h]);
+    }
+  }
+}
+collectFifteen(15,5,6,1,[]);
+assert.deepEqual([...pointSizes], ["3,3,3,3,3"]);
+// The exterior-edge test excludes the 24 case. The single spare row
+// argument in the note excludes the remaining asymmetric case at 28.
+console.log("Remaining size-28 counts", crossChecked.filter(r => r[0] === 14 && r[1] === 14));
