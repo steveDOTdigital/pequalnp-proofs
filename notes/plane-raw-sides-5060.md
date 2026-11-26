@@ -2,7 +2,7 @@
 
 [L-meta-5060](https://pequalnp.com/lemma#L-meta-5060) concerns a 19-AND circuit for the order-four projective plane. Its 42 variables are the 21 points and 21 lines. An input is accepted exactly when it contains an incident point and line. The [opposite is L-meta-5061](https://pequalnp.com/lemma#L-meta-5061). The following necessary conditions leave the full claim open.
 
-**At least 20 variables survive singleton removal.** Start with the 38 signed raw sides (the left and right variable sets at all 19 gates). Restrict all the sides to the remaining variables. Whenever a side contains only one variable, remove that variable and discard resulting empty sides. Repeat until every retained side contains at least two variables. At exactly 20, the counting conditions force ten points, ten lines, twelve mixed sides, two pure point sides and two pure line sides. The bound holds for every order of removal. In the original circuit each of the 42 variables also occurs on at least one side of size at most three.
+**[At least 26 variables survive singleton removal](#twenty-six-variables-survive-singleton-removal).** Start with the 38 signed raw sides (the left and right variable sets at all 19 gates). Restrict all the sides to the remaining variables. Whenever a side contains only one variable, remove that variable and discard resulting empty sides. Repeat until every retained side contains at least two variables. At 26, the surviving counts split the core into either thirteen points and thirteen lines or fifteen on one shore and eleven on the other. The bound holds for every order of removal. In the original circuit each of the 42 variables also occurs on at least one side of size at most three.
 
 ## Recovering variables on independent inputs
 
@@ -99,4 +99,49 @@ for p in range(1, 21):
 assert survivors == [(10, 10, 12, 2, 2)]
 ```
 
-The extra posted hypothesis bounding the number of gates reading either endpoint of a nonincident point-line pair was not needed. The surviving size-20 configuration describes counts; constructing or excluding circuits with those counts and larger cores remains open.
+The extra posted hypothesis bounding the number of gates reading either endpoint of a nonincident point-line pair was not needed. The first count leaves a single size-20 configuration. The stronger argument below excludes it.
+
+## Twenty-six variables survive singleton removal
+
+The bound now uses the placement of the two input sides of each AND gate. With at most 25 surviving variables the separate input-side constraints leave just four triangles on each shore, on a total of 24 vertices. Neither of the two arrangements that can start all the internal edges can also start every edge to an exterior vertex. At 26 vertices, two parameter lists survive the tests below. The full posted claim remains open.
+
+### Partitioning a shore
+
+Use the singleton-free core and the chosen private mixed side W(v) from the counting argument. Select one opposite-shore vertex as a representative of **each mixed side**, once for the whole shore. Each representative occurs on at most two mixed sides, since it also needs a pure side and is read at most three times. Write t for the representative of W(v).
+
+Assign v to one pure side H that it reads. The assignment can be made as follows. If v reads two pure sides, t together with a nonneighbor on each would be an independent set of substitutes. Thus on at least one of those sides every other vertex neighbors t. Choose that side. Call v *simple* whenever its chosen original pure side has this property. If v has just W(v) and one pure side, it too must be simple.
+
+Every remaining v has one pure side H and one more mixed side J. The latter is one of the M−k mixed sides outside the k private choices on a shore of size k, since none of the chosen private sides for other vertices on this shore contains v. Write z for the representative of J. In this case:
+
+- Every other member of H neighbors t or z. Otherwise it supplies an independent set of substitutes together with t and z.
+- Every other same-shore member of J neighbors t. To see this, choose a member of the original H other than v that misses t, which exists because v is not simple. These two same-shore substitutes together with t would be independent if the substitute on J also missed t.
+
+Replace each pure side for this count by the group of vertices assigned to it. The groups partition the shore and the two necessary conditions still hold after the restriction. Collect the vertices using each extra J. At most three can use it: if four did so, the witnesses of any two would share the other two neighbors and hence be identical, exhausting the two mixed reads available to that witness. Three such vertices must be noncollinear because the line through any two would otherwise be the witness of all three. Both conclusions apply also when these vertices belong to different pure groups.
+
+### Enumerating one pure group
+
+The [finite verifier](plane-raw-sides-5060.cjs) checks every pure group of up to seven points in the posted geometry, up to incidence-preserving permutations that it verifies before using. It accounts for all 116,280 seven-point subsets. For a group H it enumerates its partitions into simple singletons and parts of sizes one, two or three, one part for each extra mixed side used in that group. For every part it tries every choice of representative z and every private witness t for each member. Simple vertices need only t. It enforces both neighborhood conditions and the limit of two uses of each representative across distinct mixed sides.
+
+No seven-point group passes. A larger group would give a seven-point example by restriction: keep the chosen seven vertices, their private witnesses and the extra sides used by them. The same inequalities still hold, even if some vertices could now be classified as simple. A six-point group passes only with three parts of size two on three distinct extra sides. Point-line duality holds in the posted coordinates by sending point i to line minus i, and line j to point minus j.
+
+The verifier then distributes the feasible pure groups over a shore. Each extra mixed side can receive at most three vertices across all groups, and two different parts of one group require distinct extra sides. This test allows different groups to choose their geometry independently. Enumerating the side counts on both shores up to a total of 26 gives the following possibilities before requiring the operands to be paired into gates.
+
+| Points | Lines | Mixed sides | Pure point sides | Pure line sides |
+| ---: | ---: | ---: | ---: | ---: |
+| 12 | 12 | 12 | 4 | 4 |
+| 13 | 13 | 16 | 3 | 3 |
+| 15 | 11 | 15 | 5 | 2 |
+
+### Pairing the sides into gates
+
+In the first row all mixed sides are private on both shores. All twelve points are simple and split into four groups of three, as a purely simple group has size at most three. The same holds for the twelve lines. In each triple the points are noncollinear, and the line paired with each point on its mixed side is the unique line through the other two. Three collinear points would require their common line on three mixed sides as well as a pure side.
+
+**These twenty retained sides cannot read any exterior vertex.** A core vertex cannot occur on a discarded side, so its raw reads in the original circuit can only be among the retained sides. For each simple vertex, the chosen original pure side had all its other core vertices on its witness line. An additional core point on a pure triple would have to lie on all three sides of its triangle. Thus each pure side contains exactly its assigned core triple, and each mixed side contains exactly one vertex per shore within the core. Each core vertex therefore has exactly two raw reads in the original circuit. An exterior variable on a mixed side would have to neighbor both other points of the corresponding pure triple, because choosing it and either one gives substitutes for the missing point. Their unique common neighbor is already on the mixed side. An exterior variable on a pure point triple would have to neighbor all three lines opposite its points, an impossibility. The dual reasoning covers the pure line triples.
+
+On an input consisting of an incident point and line, at least one gate is true. In the first such gate no earlier gate can help either operand, so its two raw sides must read the two endpoints separately. Consequently a matching of the retained sides must cover all core incidences this way. The verifier enumerates ordered choices of four triangles, keeping only points and opposite lines that are pairwise distinct across the choices. It checks the symmetries used to fix the first triangle, and enumerates every compatible grouping of the lines into their own triples. For each layout it branches on every still-possible disjoint pairing for an uncovered incidence. This covers all possible ways to start the internal edges, even if some retained sides are paired to exterior sides.
+
+Of 101,165 layouts visited after symmetry pruning, only two pass that internal test. For any exterior line meeting more than three of the retained points, at least one of their pure point sides must have a partner outside the retained set. Otherwise every such point would require the exterior line to be read at a different gate opposite the point's private mixed side. This exceeds the three-read limit. Apply the same requirement to exterior points. Requiring it on each branch eliminates both remaining layouts.
+
+The four-triangle count is sharp as a test of the raw input sets alone. For example, take the disjoint point triples (0,1,2), (3,4,5), (6,7,9) and (8,10,12), with opposite lines respectively (1,7,0), (4,10,3), (14,5,6) and (17,8,15). Use one pure side per triple on each shore, one mixed side per point and its opposite line, and singleton sides for the other eighteen variables. These 38 raw sets recover membership on every independent input: substitutes on the two sides of a missing triangle vertex would themselves be incident. This construction explains why the gate-pairing step is needed.
+
+Run `node notes/plane-raw-sides-5060.cjs` from the proof fork to replay the pure-group classification, the size count and both gate-pairing tests. Neither surviving 26-variable parameter list is asserted realizable. No part of this result relies on the additional posted five-gate condition for a nonincident point-line pair.
