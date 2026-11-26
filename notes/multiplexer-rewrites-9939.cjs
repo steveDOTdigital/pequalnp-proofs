@@ -95,3 +95,59 @@ assert.equal(evaluate(damaged,-1,0,at,0n,patch).at(-1),target);
 const result=search();
 assert.deepEqual(result,{aliases:72192,locations:1660416,compatible:282912});
 console.log(result);
+
+
+function searchAcrossBranches() {
+  const stats = { locations:0, acyclicCuts:0, compatible:0 };
+  for (let shape=0; shape<128; shape++) {
+    const gates=shannon(shape), last=raw.length+gates.length-1;
+    for (let removed=0; removed<24; removed++) for (let alias=0; alias<=last; alias++) {
+      if (alias===raw.length+removed) continue;
+      for (let changed=0; changed<24; changed++) {
+        if (changed===removed) continue;
+        stats.locations++;
+        const state=new Int8Array(last+1).fill(-1), low=raw.slice(), high=raw.slice();
+        state.fill(0,0,raw.length);
+        // Once the repair gate is cut, each wire is independent of its output
+        // (0), depends on it (1), or contains a cycle (-3). Value -2 marks
+        // the current recursion stack; -1 means the wire has not been visited.
+        function classify(wire) {
+          if (state[wire]!==-1) return state[wire]===-2 ? -3 : state[wire];
+          state[wire]=-2;
+          if (wire===raw.length+changed) {
+            low[wire]=0n; high[wire]=ALL; return state[wire]=1;
+          }
+          if (wire===raw.length+removed) {
+            const dep=classify(alias);
+            if (dep<0) return state[wire]=-3;
+            low[wire]=low[alias]; high[wire]=high[alias]; return state[wire]=dep;
+          }
+          const [op,a,b]=gates[wire-raw.length];
+          const da=classify(a), db=op==="not" ? 0 : classify(b);
+          if (da<0 || db<0) return state[wire]=-3;
+          low[wire]=apply(op,low[a],low[b]);
+          high[wire]=da||db ? apply(op,high[a],high[b]) : low[wire];
+          return state[wire]=da|db;
+        }
+        if (classify(last)<0) continue;
+        stats.acyclicCuts++;
+        const ones=target^low[last], zeros=target^high[last];
+        if (ones & zeros) continue;
+        stats.compatible++;
+        const wires=[], values=[];
+        for (let w=0; w<=last; w++) {
+          if (w!==raw.length+removed && classify(w)===0) {
+            wires.push(w); values.push(low[w]);
+          }
+        }
+        const repair=fit(values,values.length,ones,zeros);
+        if (repair) return {shape,removed,alias,changed,
+          replacement:[repair[0],wires[repair[1]],wires[repair[2]]]};
+      }
+    }
+  }
+  return stats;
+}
+const crossBranch=searchAcrossBranches();
+assert.deepEqual(crossBranch,{locations:2472960,acyclicCuts:2227200,compatible:452704});
+console.log(crossBranch);
