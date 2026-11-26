@@ -38,9 +38,17 @@ The last inequality follows by adding the unrounded terms to get 62.75 and using
 
 For a cold helper with six active flags, the forest case already pays for the cut. A cyclic set of six flags is exactly a six-cycle with six endpoints. The deletion also pays unless t=5 and r=2. At t=5 the six essential variables exhaust the six leaf positions, so its producer is read-once. An OR root would have two cold children with disjoint variables, since even one accepted singleton would turn on the root. Each active flag must lie wholly in one child, impossible for a connected cycle using all six variables. For an AND root each flag must meet both children, since an input-free side evaluates to zero. Thus the root partition is the unique bipartition of the cycle. Each child accepts each of its three singleton inputs and equals their disjunction by monotonicity. The one cyclic configuration left by this accounting is consequently an AND of a three-point OR and a three-line OR with exactly two reads. Other shared wires may coexist. This classification does not cover helpers accepting two singletons or helpers active on more than six flags.
 
+## Allowing two additional six-flag wires
+
+The 63-gate conclusion still holds if all shared wires are safe or active on at most five flags, with at most two additional wires allowed to be active on six flags and to accept at most one singleton each. Count each wire once independent of its number of reads. As the circuit shrinks, a surviving exceptional shared wire inherits a distinct original exception: alias classes of distinct representatives are disjoint. Removing one exception does not create a replacement exception in its private cone. If its active set shrinks below six, it satisfies the ordinary bound.
+
+A six-flag wire with a unique accepted singleton can use the singleton substitution above with b ≤ 3 exceptional flags. These form a forest, and the producer saves at least b+1 ≥ 5b/4. For a cold six-flag wire, only the six-cycle case t=5, r=2 falls short. It still saves seven gates, just 1/2 below the 5b/4 budget. One such shortfall leaves the unrounded lower bound at 62.25, which still requires 63 gates.
+
+It remains to check two shortfalls. Every operation on an ordinary wire saves at least 1/2 more than its 5b/4 budget. For a nonempty cold wire with b ≤ 5 the surplus is at least 2−b/4 ≥ 3/4; for a unique hot singleton with b ≤ 2 it is at least 1−b/4 ≥ 1/2. A safe or zero-loss operation saves a whole gate. Thus even one ordinary operation pays enough: 62.75−1+0.5 > 62. With just the two critical cuts, if their six-cycles coincide, there are at most six lost rows and the ordinary formula bound suffices. For distinct cycles their union removes at most 12 rows. We checked all 21,321 unordered pairs of six-cycles. The remaining graph has matching number 12 in 5,130 cases and 13 in 16,191. Hence the original size is at least 14 + 39 + 12 − 1 = 64. Constant and alias simplifications at any stage can only increase the savings.
+
 ## Finite checks
 
-The negative catalogue statement has hash `sha256:f0cb19caced79cccf83287cb169a2f860d767188c25c60b1f035264d086be383`. We compared both live Lean statements and all 51 posted edge pairs. The following Python replay checks the geometry, the claimed upper circuit on every minimal positive and on a cofinal family of 8,192 independent inputs, and each possible loss budget. The shared-gate elimination is a written argument.
+The negative catalogue statement has hash `sha256:f0cb19caced79cccf83287cb169a2f860d767188c25c60b1f035264d086be383`. We compared both live Lean statements and all 51 posted edge pairs. The following Python replay checks the geometry, the claimed upper circuit on every minimal positive and on a cofinal family of 8,192 independent inputs, each possible loss budget, and the matching number after deleting any pair of six-cycles. The shared-gate elimination is a written argument.
 
 ```python
 from itertools import combinations
@@ -83,4 +91,29 @@ for mask in range(1<<13):
 for K in range(52):
     assert (5*K+3)//4+(51-K)+(51-K+3)//4-1>=63
 print('51 flags, 8192 independent-set controls, 63 gates, minimum two-star union 6, 52 budget checks passed')
+from collections import Counter
+def hexagon(points):
+    sides=[N[p]&N[q] for p,q in combinations(points,2)]
+    if any(len(s)!=1 for s in sides):
+        return None
+    lines=set.union(*sides)
+    if len(lines)!=3:
+        return None
+    return frozenset((p,l) for p in points for l in N[p]&lines)
+hexes=[h for pts in combinations(P,3) if (h:=hexagon(pts))]
+def matching(blocked):
+    mate={}
+    def augment(p,seen):
+        for l in N[p]:
+            if (p,l) in blocked or l in seen:
+                continue
+            seen.add(l)
+            if l not in mate or augment(mate[l],seen):
+                mate[l]=p
+                return True
+        return False
+    return sum(augment(p,set()) for p in P)
+counts=Counter(matching(a|b) for a,b in combinations(hexes,2))
+print(len(hexes),sorted(counts.items()))
+assert min(counts)>=11
 ```
