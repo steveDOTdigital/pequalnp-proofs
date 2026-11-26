@@ -111,21 +111,25 @@ function symmetries() {
   return maps;
 }
 
-standardControl();
-const libraries = enumerateAddressLibraries(6);
-assert.equal(libraries.count, 202322);
-const maps = symmetries(), cache = new Map(), totals = {};
-for (const extra of libraries.usable) {
-  const key = maps.map(map =>
-    String.fromCharCode(...extra.map(g => map[g]).sort((a,b) => a-b))).sort()[0];
-  if (!cache.has(key)) cache.set(key, minimumGuards(raw.concat(extra)));
-  const value = cache.get(key);
-  const row = totals[extra.length] ??= {};
-  row[value] = (row[value] ?? 0) + 1;
+module.exports = { raw, standardControl, minimumGuards, enumerateAddressLibraries, symmetries };
+
+if (require.main === module) {
+  standardControl();
+  const libraries = enumerateAddressLibraries(6);
+  assert.equal(libraries.count, 202322);
+  const maps = symmetries(), cache = new Map(), totals = {};
+  for (const extra of libraries.usable) {
+    const key = maps.map(map =>
+      String.fromCharCode(...extra.map(g => map[g]).sort((a,b) => a-b))).sort()[0];
+    if (!cache.has(key)) cache.set(key, minimumGuards(raw.concat(extra)));
+    const value = cache.get(key);
+    const row = totals[extra.length] ??= {};
+    row[value] = (row[value] ?? 0) + 1;
+  }
+  assert.deepEqual(totals, {
+    3: {14:1}, 4: {14:24}, 5: {12:39,13:12,14:324},
+    6: {12:1128,13:2164,14:1648}
+  });
+  console.log("24-gate control: all 2048 rows passed.");
+  console.log("Extra address gates, guard counts and library multiplicities:", totals);
 }
-assert.deepEqual(totals, {
-  3: {14:1}, 4: {14:24}, 5: {12:39,13:12,14:324},
-  6: {12:1128,13:2164,14:1648}
-});
-console.log("24-gate control: all 2048 rows passed.");
-console.log("Extra address gates, guard counts and library multiplicities:", totals);
