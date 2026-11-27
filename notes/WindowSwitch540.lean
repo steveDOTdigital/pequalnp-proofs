@@ -1,3 +1,5 @@
+import Mathlib.Tactic.Abel
+import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.FieldTheory.Finite.GaloisField
 import Mathlib.FieldTheory.PrimitiveElement
 import Mathlib.Data.Finset.Card
@@ -821,5 +823,619 @@ theorem multiplier_shifts {K F : Type} [Field K] [Field F] [Algebra K F]
     f (pb.gen * pb.basis ⟨i,by omega⟩) = f (pb.basis ⟨i+1,h⟩) := by
   rw [pb.basis_eq_pow,pb.basis_eq_pow]
   simp only [pow_succ']
+
+abbrev Vec2 (w : Nat) := Fin w → ZMod 2
+
+def pairValue {w : Nat} (x y : Vec2 w) : ZMod 2 :=
+  ∑ i, x i * y i
+
+theorem pair_symm {w : Nat} (x y : Vec2 w) : pairValue x y = pairValue y x := by
+  simp only [pairValue, mul_comm]
+
+theorem pair_add_left {w : Nat} (x z y : Vec2 w) :
+    pairValue (x+z) y = pairValue x y + pairValue z y := by
+  simp [pairValue, add_mul, Finset.sum_add_distrib]
+
+theorem pair_sub_left {w : Nat} (x z y : Vec2 w) :
+    pairValue (x-z) y = pairValue x y - pairValue z y := by
+  simp [pairValue, sub_mul, Finset.sum_sub_distrib]
+
+theorem pair_single {w : Nat} (i : Fin w) (y : Vec2 w) :
+    pairValue (Pi.single i (1 : ZMod 2)) y = y i := by
+  simp [pairValue, Pi.single_apply, ite_mul, Finset.sum_ite_eq']
+
+theorem pair_zero_left {w : Nat} (x : Vec2 w) : pairValue 0 x = 0 := by simp [pairValue]
+
+theorem bitDichotomy (a : ZMod 2) : a = 0 ∨ a = 1 := by
+  have h : ∀ b : ZMod 2, b = 0 ∨ b = 1 := by decide
+  exact h a
+
+theorem nonzero_coordinate {w : Nat} (y : Vec2 w) (hy : y ≠ 0) :
+    ∃ i, y i = 1 := by
+  by_contra! h
+  apply hy
+  funext i
+  exact (bitDichotomy (y i)).resolve_right (h i)
+
+theorem balancedPair {w : Nat} (y : Vec2 w) (hy : y ≠ 0) :
+    2 * (Finset.univ.filter (fun x : Vec2 w => pairValue x y = 1)).card = 2^w ∧
+    2 * (Finset.univ.filter (fun x : Vec2 w => pairValue x y = 0)).card = 2^w := by
+  obtain ⟨i,hi⟩ := nonzero_coordinate y hy
+  let e : Vec2 w := Pi.single i 1
+  have pair : pairValue e y = 1 := (pair_single i y).trans hi
+  let zeros := Finset.univ.filter (fun x : Vec2 w => pairValue x y = 0)
+  let ones := Finset.univ.filter (fun x : Vec2 w => pairValue x y = 1)
+  have in₀ x : x ∈ zeros ↔ pairValue x y = 0 := by simp [zeros]
+  have in₁ x : x ∈ ones ↔ pairValue x y = 1 := by simp [ones]
+  have eq : zeros.card = ones.card := by
+    apply Finset.card_bij (fun x _ => x+e)
+    · intro x h
+      apply (in₁ _).mpr
+      rw [pair_add_left,pair,(in₀ _).mp h,zero_add]
+    · intro a ha b hb h
+      exact add_right_cancel h
+    · intro z hz
+      refine ⟨z-e, (in₀ _).mpr ?_, sub_add_cancel z e⟩
+      rw [pair_sub_left,pair,(in₁ _).mp hz,sub_self]
+  have disj : Disjoint zeros ones := by
+    refine Finset.disjoint_left.mpr ?_
+    intro a az ao
+    exact zero_ne_one ((in₀ _).mp az |>.symm.trans ((in₁ _).mp ao))
+  have total : zeros ∪ ones = Finset.univ := by
+    ext x
+    simp only [Finset.mem_union,in₀,in₁,Finset.mem_univ,iff_true]
+    exact bitDichotomy _
+  have dim : (Finset.univ : Finset (Vec2 w)).card = 2^w := by
+    simp [Vec2,ZMod.card]
+  have two : zeros.card + ones.card = 2^w := by
+    rw [← Finset.card_union_of_disjoint disj,total,dim]
+  change 2*ones.card = 2^w ∧ 2*zeros.card = 2^w
+  omega
+
+theorem triangularForm {w : Nat} (v : Fin w → Vec2 w)
+    (diag : ∀ i, v i i = 1)
+    (lastZero : ∀ i j, i.val < j.val → v i j = 0) :
+    ∃ l : Vec2 w, ∀ i, pairValue l (v i) = 1 := by
+  induction w with
+  | zero =>
+    exact ⟨0, fun i => Fin.elim0 i⟩
+  | succ w ih =>
+    let sub : Fin w → Vec2 w := fun i j => v i.castSucc j.castSucc
+    obtain ⟨l,hl⟩ := ih sub (fun i => diag i.castSucc)
+      (fun i j h => lastZero i.castSucc j.castSucc h)
+    let last := 1-pairValue l (fun j : Fin w => v (Fin.last w) j.castSucc)
+    refine ⟨Fin.snoc l last,?_⟩
+    intro i
+    refine Fin.lastCases ?_ (fun j => ?_) i
+    · unfold pairValue
+      rw [Fin.sum_univ_castSucc]
+      simp only [Fin.snoc_castSucc,Fin.snoc_last,diag,mul_one]
+      change pairValue l (fun j : Fin w => v (Fin.last w) j.castSucc) + last = 1
+      rw [add_comm]
+      exact sub_add_cancel _ _
+    · unfold pairValue
+      rw [Fin.sum_univ_castSucc]
+      simp only [Fin.snoc_castSucc,Fin.snoc_last,lastZero j.castSucc (Fin.last w) j.isLt,
+        mul_zero,add_zero]
+      exact hl j
+
+
+theorem manyOddRows {I : Type} [DecidableEq I] {w : Nat}
+    (rows : Finset I) (v : I → Vec2 w) (nz : ∀ i ∈ rows, v i ≠ 0) :
+    ∃ l : Vec2 w, rows.card ≤ 2 * (rows.filter (fun i => pairValue l (v i) = 1)).card := by
+  classical
+  let good (l : Vec2 w) := (rows.filter (fun i => pairValue l (v i) = 1)).card
+  have dim : (Finset.univ : Finset (Vec2 w)).card = 2^w := by simp [Vec2,ZMod.card]
+  have total : (∑ l : Vec2 w, 2 * good l) = rows.card * 2^w := by
+    calc
+      _ = ∑ l : Vec2 w, ∑ i ∈ rows, 2 * (if pairValue l (v i) = 1 then 1 else 0) := by
+        simp only [good,Finset.card_filter,Finset.mul_sum]
+      _ = ∑ i ∈ rows, ∑ l : Vec2 w, 2 * (if pairValue l (v i) = 1 then 1 else 0) :=
+        Finset.sum_comm
+      _ = ∑ i ∈ rows, 2^w := by
+        apply Finset.sum_congr rfl
+        intro i hi
+        simpa only [← Finset.mul_sum, ← Finset.card_filter] using (balancedPair (v i) (nz i hi)).1
+      _ = _ := by simp
+  by_contra! bad
+  have impossible : (∑ l ∈ (Finset.univ : Finset (Vec2 w)), (2 * good l + 1)) ≤
+      ∑ _ ∈ (Finset.univ : Finset (Vec2 w)), rows.card := by
+    apply Finset.sum_le_sum
+    intro l _
+    exact Nat.succ_le_of_lt (bad l)
+  rw [Finset.sum_add_distrib,total,Finset.sum_const,Finset.sum_const,dim] at impossible
+  simp only [nsmul_eq_mul] at impossible
+  have pos : 0 < 2^w := Nat.two_pow_pos w
+  change rows.card * 2^w + 2^w * 1 ≤ 2^w * rows.card at impossible
+  rw [mul_one, Nat.mul_comm (2^w) rows.card] at impossible
+  omega
+
+
+def bitAsZ : Bool ≃ ZMod 2 where
+  toFun b := if b then 1 else 0
+  invFun z := decide (z = 1)
+  left_inv b := by cases b <;> decide
+  right_inv z := by
+    have exactBit : ∀ a : ZMod 2, ((if decide (a = 1) then 1 else 0) : ZMod 2) = a := by decide
+    exact exactBit z
+
+def stateVec (d : Nat) : State d ≃ Vec2 (d+1) :=
+  Equiv.piCongrRight (fun _ => bitAsZ)
+
+theorem pair_add_right {w : Nat} (x y z : Vec2 w) :
+    pairValue x (y+z) = pairValue x y + pairValue x z := by
+  rw [pair_symm x (y+z),pair_add_left,pair_symm y x,pair_symm z x]
+
+theorem bankOfVector {d L : Nat} (P : PackingPrefix d L) (J : Finset (Fin L))
+    (move : Fin L → Vec2 (d+1)) (l : Vec2 (d+1)) (nonzero : l ≠ 0)
+    (distinct : ∀ i ∈ J, ∀ j ∈ J, move i = move j → i = j)
+    (odd : ∀ i ∈ J, pairValue l (move i) = 1)
+    (flip : ∀ i ∈ J, ∀ x : State d,
+      toggle (P i.castSucc x) = P i.castSucc ((stateVec d).symm (stateVec d x + move i))) :
+    ∃ (m : Nat) (edge : Fin m → State d × State d) (row : Fin m → Fin L),
+      2*m = 2^(d+1)*J.card ∧ Function.Injective edge ∧
+      (∀ j k, (edge j).1 ≠ (edge k).2) ∧
+      (∀ j, toggle (P (row j).castSucc (edge j).1) = P (row j).castSucc (edge j).2) := by
+  classical
+  let bank := Finset.univ.filter (fun x : State d => pairValue l (stateVec d x) = 0)
+  let motion := fun (i : Fin L) (x : State d) => (stateVec d).symm (stateVec d x + move i)
+  have bankSpec (x : State d) : x ∈ bank ↔ pairValue l (stateVec d x) = 0 := by simp [bank]
+  have bc : bank.card = (Finset.univ.filter (fun z : Vec2 (d+1) => pairValue z l = 0)).card := by
+    apply Finset.card_bij (fun s _ => stateVec d s)
+    · intro s hs
+      simp only [Finset.mem_filter,Finset.mem_univ,true_and]
+      rw [pair_symm]
+      exact (bankSpec _).mp hs
+    · intro a _ b _ e
+      exact (stateVec d).injective e
+    · intro z hz
+      have zc : pairValue z l = 0 := by simpa using hz
+      refine ⟨(stateVec d).symm z,(bankSpec _).mpr ?_,(stateVec d).apply_symm_apply _⟩
+      rw [(stateVec d).apply_symm_apply, pair_symm]
+      exact zc
+  have size : 2*bank.card = 2^(d+1) := by
+    rw [bc]
+    exact (balancedPair l nonzero).2
+  have leaves : ∀ i ∈ J, ∀ x ∈ bank, motion i x ∉ bank := by
+    intro i hi x hx hc
+    have z := (bankSpec _).mp hc
+    simp only [motion,Equiv.apply_symm_apply,pair_add_right,(bankSpec _).mp hx,odd i hi,zero_add] at z
+    exact one_ne_zero z
+  have unique : ∀ x ∈ bank, ∀ i ∈ J, ∀ j ∈ J, motion i x = motion j x → i = j := by
+    intro x _ i hi j hj same
+    have z : stateVec d x + move i = stateVec d x + move j := by
+      simpa only [motion,Equiv.apply_symm_apply] using congrArg (stateVec d) same
+    exact distinct i hi j hj (add_left_cancel z)
+  obtain ⟨m,edge,row,hcount,hinj,hsep,hflip⟩ :=
+    enumerateFromBank P J bank motion (fun i hi x _ => flip i hi x) leaves unique
+  refine ⟨m,edge,row,?_,hinj,hsep,hflip⟩
+  calc
+    2*m = (2*bank.card)*J.card := by rw [hcount]; ac_rfl
+    _ = _ := by rw [size]
+
+
+theorem bankFromEarly {d L : Nat} (P : PackingPrefix d L) (size : d+1 ≤ L)
+    (short : L < 10*(d+1)) (move : Fin L → Vec2 (d+1))
+    (diag : ∀ i : Fin (d+1), move (Fin.castLE size i) i = 1)
+    (above : ∀ i j : Fin (d+1), i.val < j.val → move (Fin.castLE size i) j = 0)
+    (flip : ∀ (i : Fin L), i.val < d+1 → ∀ x : State d,
+      toggle (P i.castSucc x) = P i.castSucc ((stateVec d).symm (stateVec d x + move i))) :
+    ∃ (m : Nat) (edge : Fin m → State d × State d) (row : Fin m → Fin L),
+      2^(d+1) * min L (2^(d+1)) ≤ 20*m ∧ Function.Injective edge ∧
+      (∀ j k, (edge j).1 ≠ (edge k).2) ∧
+      (∀ j, toggle (P (row j).castSucc (edge j).1) = P (row j).castSucc (edge j).2) := by
+  let J := Finset.univ.image (Fin.castLE size)
+  have jc : J.card = d+1 := by
+    rw [show J = Finset.univ.image (Fin.castLE size) from rfl,Finset.card_image_of_injective]
+    · simp
+    · intro a b eq
+      exact Fin.ext (congrArg (fun q : Fin L => q.val) eq)
+  have orig {i : Fin L} (hi : i ∈ J) : ∃ j : Fin (d+1), Fin.castLE size j = i := by
+    simpa [J,Finset.mem_image] using hi
+  obtain ⟨l,hl⟩ := triangularForm (fun i => move (Fin.castLE size i)) diag above
+  have lnz : l ≠ 0 := by
+    intro eq
+    have h1 := hl 0
+    rw [eq,pair_zero_left] at h1
+    exact zero_ne_one h1
+  have odd (i) (hi : i ∈ J) : pairValue l (move i) = 1 := by
+    obtain ⟨j,rfl⟩ := orig hi
+    exact hl j
+  have distinct (i) (hi : i ∈ J) (j) (hj : j ∈ J) (eq : move i = move j) : i=j := by
+    obtain ⟨a,rfl⟩ := orig hi
+    obtain ⟨b,rfl⟩ := orig hj
+    by_cases same : a = b
+    · subst b
+      rfl
+    · rcases lt_or_gt_of_ne (show a.val ≠ b.val from fun hs => same (Fin.ext hs)) with h|h
+      · exfalso
+        have e := congrFun eq b
+        rw [above a b h,diag b] at e
+        exact zero_ne_one e
+      · exfalso
+        have e := congrFun eq a
+        rw [diag a, above b a h] at e
+        exact one_ne_zero e
+  obtain ⟨m,edge,row,hm,inj,sep,ok⟩ := bankOfVector P J move l lnz distinct odd (by
+    intro i hi x
+    obtain ⟨j,rfl⟩ := orig hi
+    exact flip _ j.isLt x)
+  rw [jc] at hm
+  exact ⟨m,edge,row,shortMultiplicity _ (d+1) _ m short hm,inj,sep,ok⟩
+
+theorem bankFromLong {d L t : Nat} (P : PackingPrefix d L)
+    (large : 10*(d+1) ≤ L) (tdef : t = min (L-5*(d+1)) (2^(d+1)-1))
+    (move : Fin L → Vec2 (d+1))
+    (nz : ∀ i : Fin L, i.val < t → move i ≠ 0)
+    (distinct : ∀ i j : Fin L, i.val < t → j.val < t → move i = move j → i=j)
+    (flip : ∀ (i : Fin L), i.val < t → ∀ x : State d,
+      toggle (P i.castSucc x) = P i.castSucc ((stateVec d).symm (stateVec d x + move i))) :
+    ∃ (m : Nat) (edge : Fin m → State d × State d) (row : Fin m → Fin L),
+      2^(d+1) * min L (2^(d+1)) ≤ 20*m ∧ Function.Injective edge ∧
+      (∀ j k, (edge j).1 ≠ (edge k).2) ∧
+      (∀ j, toggle (P (row j).castSucc (edge j).1) = P (row j).castSucc (edge j).2) := by
+  have tL : t ≤ L := by
+    rw [tdef]
+    exact (Nat.min_le_left _ _).trans (Nat.sub_le _ _)
+  have Dtwo : 2 ≤ 2^(d+1) := by
+    rw [pow_succ]
+    have := Nat.two_pow_pos d
+    omega
+  have pos : 0 < t := by
+    rw [tdef]
+    exact Nat.lt_min.mpr ⟨by omega,by omega⟩
+  let all := Finset.univ.image (Fin.castLE tL)
+  have allCard : all.card = t := by
+    rw [show all = Finset.univ.image (Fin.castLE tL) from rfl,Finset.card_image_of_injective]
+    · simp
+    · intro a b eq
+      exact Fin.ext (congrArg (fun q : Fin L => q.val) eq)
+  have member {i : Fin L} (h : i ∈ all) : i.val < t := by
+    obtain ⟨j,rfl⟩ : ∃ j : Fin t, Fin.castLE tL j = i := by simpa [all,Finset.mem_image] using h
+    exact j.isLt
+  obtain ⟨l,hl⟩ := manyOddRows all move (fun i hi => nz i (member hi))
+  let J := all.filter (fun i => pairValue l (move i) = 1)
+  have count : t ≤ 2*J.card := by simpa only [← allCard] using hl
+  have lnz : l ≠ 0 := by
+    intro eq
+    have J0 : J.card = 0 := by simp [J,eq,pair_zero_left]
+    omega
+  have both {i : Fin L} (h : i ∈ J) : i ∈ all ∧ pairValue l (move i) = 1 := Finset.mem_filter.mp h
+  obtain ⟨m,edge,row,hm,inj,sep,ok⟩ :=
+    bankOfVector P J move l lnz
+      (fun i hi j hj e => distinct i j (member (both hi).1) (member (both hj).1) e)
+      (fun i hi => (both hi).2) (fun i hi x => flip i (member (both hi).1) x)
+  exact ⟨m,edge,row,longMultiplicity _ _ _ t J.card m large Dtwo tdef count hm,inj,sep,ok⟩
+
+noncomputable def advancePerm {d : Nat} (control : (Fin d → Bool) → Bool) : Equiv.Perm (State d) :=
+  Equiv.ofBijective (advance control) ⟨advance_inj control, Finite.surjective_of_injective (advance_inj control)⟩
+
+theorem rangeLast (m : Nat) :
+    List.finRange (m+1) = (List.finRange m).map Fin.castSucc ++ [Fin.last m] := by
+  refine List.ext_getElem (by simp) fun i h1 h2 => ?_
+  by_cases hi : i < m
+  · rw [List.getElem_append_left (by simp [hi])]
+    simp
+  · have him : i = m := by
+      simp only [List.length_finRange] at h1
+      omega
+    subst him
+    rw [List.getElem_append_right (by simp)]
+    simp [Fin.last]
+
+noncomputable def prefixOf {d L : Nat} (control : WindowTable d L) (i : Fin (L+1)) :
+    Equiv.Perm (State d) :=
+  (List.finRange i.val).foldl
+    (fun p r => p.trans (advancePerm (control ⟨r.val, by omega⟩)))
+    (Equiv.refl (State d))
+
+theorem prefixOf_zero {d L : Nat} (ctrl : WindowTable d L) (x : State d) : prefixOf ctrl 0 x = x := by
+  simp [prefixOf]
+
+theorem prefixOf_succ {d L : Nat} (ctrl : WindowTable d L) (i : Fin L) (x : State d) :
+    prefixOf ctrl i.succ x = advance (ctrl i) (prefixOf ctrl i.castSucc x) := by
+  unfold prefixOf
+  simp only [Fin.val_succ,Fin.val_castSucc]
+  rw [rangeLast,List.foldl_append,List.foldl_map]
+  rfl
+
+theorem fold_perm_eval {d L : Nat} (ctrl : WindowTable d L) (rows : List (Fin L))
+    (p : Equiv.Perm (State d)) (x : State d) :
+    (rows.foldl (fun q j => q.trans (advancePerm (ctrl j))) p) x =
+      rows.foldl (fun y j => advance (ctrl j) y) (p x) := by
+  induction rows generalizing p with
+  | nil => rfl
+  | cons a tail ih =>
+    simp only [List.foldl_cons]
+    rw [ih]
+    rfl
+
+theorem prefixOf_last {d L : Nat} (ctrl : WindowTable d L) (x : State d) :
+    prefixOf ctrl (Fin.last L) x = (List.finRange L).foldl (fun s j => advance (ctrl j) s) x := by
+  unfold prefixOf
+  exact fold_perm_eval ctrl (List.finRange L) (Equiv.refl (State d)) x
+
+
+
+theorem prefixUntouched {d L : Nat} (ctrl : WindowTable d L) (x : State d)
+    (n : Nat) (hn : n ≤ L) (j : Fin (d+1)) (h : n+j.val < d+1) :
+    prefixOf ctrl ⟨n,by omega⟩ x j = x ⟨n+j.val,h⟩ := by
+  induction n generalizing j with
+  | zero =>
+    change prefixOf ctrl 0 x j = _
+    rw [prefixOf_zero]
+    congr 1
+    apply Fin.ext
+    simp
+  | succ n ih =>
+    let k : Fin d := ⟨j.val, by omega⟩
+    let i : Fin L := ⟨n,by omega⟩
+    have eq : j = k.castSucc := Fin.ext rfl
+    have sum : n+k.succ.val = n+1+j.val := by dsimp [k]; omega
+    calc
+      _ = prefixOf ctrl i.succ x k.castSucc := congrArg (prefixOf ctrl i.succ x) eq
+      _ = prefixOf ctrl i.castSucc x k.succ := by rw [prefixOf_succ,advance,Fin.snoc_castSucc]
+      _ = x ⟨n+k.succ.val,by omega⟩ := ih (by omega) k.succ (by omega)
+      _ = _ := congrArg x (Fin.ext sum)
+
+noncomputable def firstDifference {d L : Nat} (ctrl : WindowTable d L) (i : Fin L) : State d :=
+  (prefixOf ctrl i.castSucc).symm (toggle (prefixOf ctrl i.castSucc (fun _ => false)))
+
+theorem difference_diagonal {d L : Nat} (ctrl : WindowTable d L) (i : Fin L)
+    (hi : i.val < d+1) : firstDifference ctrl i ⟨i.val,hi⟩ = true := by
+  have describe (x : State d) : prefixOf ctrl i.castSucc x 0 = x ⟨i.val,hi⟩ := by
+    have a := prefixUntouched ctrl x i.val (by omega) 0 (by change i.val+0 < d+1; omega)
+    have idx : (⟨i.val,by omega⟩ : Fin (L+1)) = i.castSucc := Fin.ext rfl
+    rw [idx] at a
+    simpa using a
+  have eq := congrFun ((prefixOf ctrl i.castSucc).apply_symm_apply
+    (toggle (prefixOf ctrl i.castSucc (fun _ => false)))) 0
+  change prefixOf ctrl i.castSucc (firstDifference ctrl i) 0 = _ at eq
+  rw [toggle,Fin.cons_zero,describe,describe] at eq
+  simpa using eq
+
+theorem difference_upper_zero {d L : Nat} (ctrl : WindowTable d L) (i : Fin L)
+    (j : Fin (d+1)) (gt : i.val < j.val) : firstDifference ctrl i j = false := by
+  let k : Fin d := ⟨j.val-i.val-1,by omega⟩
+  have sum : i.val+k.succ.val=j.val := by dsimp [k]; omega
+  have describe (x : State d) : prefixOf ctrl i.castSucc x k.succ = x j := by
+    have a := prefixUntouched ctrl x i.val (by omega) k.succ (by omega)
+    have idx : (⟨i.val,by omega⟩ : Fin (L+1)) = i.castSucc := Fin.ext rfl
+    rw [idx] at a
+    exact a.trans (congrArg x (Fin.ext sum))
+  have eq := congrFun ((prefixOf ctrl i.castSucc).apply_symm_apply
+    (toggle (prefixOf ctrl i.castSucc (fun _ => false)))) k.succ
+  change prefixOf ctrl i.castSucc (firstDifference ctrl i) k.succ = _ at eq
+  rw [toggle,Fin.cons_succ,describe,describe] at eq
+  exact eq
+
+
+
+def IsAffine2 {w : Nat} (f : Vec2 w → Vec2 w) : Prop :=
+  ∀ x y, f (x+y) = f x + f y - f 0
+
+theorem affine_sub {w : Nat} {f : Vec2 w → Vec2 w} (hf : IsAffine2 f)
+    (x y : Vec2 w) : f (x-y) = f x - f y + f 0 := by
+  have h := hf (x-y) y
+  rw [sub_add_cancel] at h
+  calc
+    f (x-y) = (f (x-y) + f y - f 0) - f y + f 0 := by abel
+    _ = _ := by rw [← h]
+
+theorem affine_comp {w : Nat} {f g : Vec2 w → Vec2 w}
+    (hf : IsAffine2 f) (hg : IsAffine2 g) : IsAffine2 (f ∘ g) := by
+  intro x y
+  unfold Function.comp
+  rw [hg x y,affine_sub hf, hf (g x) (g y)]
+  abel
+
+def liftToVec {d : Nat} (f : State d → State d) : Vec2 (d+1) → Vec2 (d+1) :=
+  fun x => stateVec d (f ((stateVec d).symm x))
+
+theorem liftToVec_comp {d : Nat} (f g : State d → State d) :
+    liftToVec (f ∘ g) = liftToVec f ∘ liftToVec g := by
+  funext x
+  simp [liftToVec]
+
+theorem bitAsZ_xor (a b : Bool) :
+    bitAsZ (xor a b) = bitAsZ a + bitAsZ b := by cases a <;> cases b <;> decide
+
+theorem stateVec_false (d : Nat) : stateVec d (fun _ => false) = 0 := rfl
+
+theorem stateVec_toggle {d : Nat} (x : State d) :
+    stateVec d (toggle x) = stateVec d x + Pi.single 0 1 := by
+  funext i
+  refine Fin.cases ?_ (fun j => ?_) i
+  · change bitAsZ (!x 0) = bitAsZ (x 0) + ((Pi.single (0 : Fin (d+1)) (1 : ZMod 2)) : Vec2 (d+1)) 0
+    simp only [Pi.single_eq_same]
+    cases x 0 <;> decide
+  · change bitAsZ ((toggle x) j.succ) =
+      bitAsZ (x j.succ) + ((Pi.single (0 : Fin (d+1)) (1 : ZMod 2)) : Vec2 (d+1)) j.succ
+    simp [toggle,j.succ_ne_zero]
+
+theorem firstDifference_affine {d L : Nat} (ctrl : WindowTable d L) (i : Fin L)
+    (affine : IsAffine2 (liftToVec (prefixOf ctrl i.castSucc))) (x : State d) :
+    toggle (prefixOf ctrl i.castSucc x) =
+      prefixOf ctrl i.castSucc ((stateVec d).symm (stateVec d x + stateVec d (firstDifference ctrl i))) := by
+  let P := prefixOf ctrl i.castSucc
+  let v := firstDifference ctrl i
+  have init : (stateVec d).symm 0 = fun _ => false :=
+    (stateVec d).symm_apply_eq.mpr (stateVec_false d).symm
+  have atv : P v = toggle (P (fun _ => false)) := P.apply_symm_apply _
+  apply (stateVec d).injective
+  change stateVec d (toggle (P x)) = liftToVec P (stateVec d x + stateVec d v)
+  rw [affine, stateVec_toggle]
+  simp only [liftToVec,Equiv.symm_apply_apply,init]
+  change stateVec d (P x) + Pi.single 0 1 =
+    stateVec d (P x) + stateVec d (P v) - stateVec d (P (fun _ => false))
+  rw [atv,stateVec_toggle]
+  abel
+
+theorem prefixAffine {d L : Nat} (ctrl : WindowTable d L)
+    (rows : ∀ i, IsAffine2 (liftToVec (advance (ctrl i)))) (i : Fin (L+1)) :
+    IsAffine2 (liftToVec (prefixOf ctrl i)) := by
+  have general : ∀ n (hn : n≤L), IsAffine2 (liftToVec (prefixOf ctrl ⟨n,by omega⟩)) := by
+    intro n
+    induction n with
+    | zero =>
+      intro hn x y
+      have same (z : Vec2 (d+1)) : liftToVec (prefixOf ctrl 0) z = z := by
+        simp [liftToVec,prefixOf_zero]
+      change liftToVec (prefixOf ctrl 0) (x+y) =
+        liftToVec (prefixOf ctrl 0) x + liftToVec (prefixOf ctrl 0) y - liftToVec (prefixOf ctrl 0) 0
+      simp only [same,sub_zero]
+    | succ n ih =>
+      intro hn
+      let j : Fin L := ⟨n,by omega⟩
+      change IsAffine2 (liftToVec (prefixOf ctrl j.succ))
+      have e : (prefixOf ctrl j.succ : State d → State d) =
+          advance (ctrl j) ∘ prefixOf ctrl j.castSucc := by
+        funext x
+        exact prefixOf_succ ctrl j x
+      rw [e,liftToVec_comp]
+      exact affine_comp (rows j) (ih (by omega))
+  exact general i.val (by omega)
+
+
+def tappedControl {d : Nat} (taps : Fin d → Bool) (bias : Bool) (tail : Fin d → Bool) : Bool :=
+  (List.finRange d).foldl (fun b j => xor b (taps j && tail j)) bias
+
+def tapSum {d : Nat} (taps : Fin d → Bool) (v : Vec2 d) : ZMod 2 :=
+  ((List.finRange d).map fun j => bitAsZ (taps j) * v j).sum
+
+theorem bitAsZ_and (a b : Bool) :
+    bitAsZ (a && b) = bitAsZ a * bitAsZ b := by cases a <;> cases b <;> decide
+
+theorem foldTap_toZ {d : Nat} (taps tail : Fin d → Bool) (rows : List (Fin d)) (init : Bool) :
+    bitAsZ (rows.foldl (fun b j => xor b (taps j && tail j)) init) =
+      bitAsZ init + (rows.map fun j => bitAsZ (taps j) * bitAsZ (tail j)).sum := by
+  induction rows generalizing init with
+  | nil => simp
+  | cons a rest ih =>
+    rw [List.foldl_cons,ih,bitAsZ_xor,bitAsZ_and,List.map_cons,List.sum_cons, add_assoc]
+
+theorem tapSum_add {d : Nat} (taps : Fin d → Bool) (x y : Vec2 d) :
+    tapSum taps (x+y) = tapSum taps x + tapSum taps y := by
+  unfold tapSum
+  generalize List.finRange d = rows
+  induction rows with
+  | nil => simp
+  | cons a rest ih =>
+    simp only [List.map_cons,List.sum_cons]
+    rw [ih,Pi.add_apply,mul_add]
+    abel
+
+theorem tapSum_zero {d : Nat} (taps : Fin d → Bool) : tapSum taps 0 = 0 := by
+  unfold tapSum
+  generalize List.finRange d = rows
+  induction rows with
+  | nil => rfl
+  | cons a rest ih =>
+    simp only [List.map_cons,List.sum_cons]
+    rw [ih]
+    simp
+
+theorem tapAdvance_match {d : Nat} (taps : Fin d → Bool) (bias : Bool) (s : State d) :
+    advance (tappedControl taps bias) s =
+      Fin.snoc (fun j : Fin d => s j.succ)
+        ((List.finRange d).foldl (fun b j => xor b (taps j && s j.succ)) (xor (s 0) bias)) := by
+  have e : xor (s 0) (tappedControl taps bias (fun j => s j.succ)) =
+      (List.finRange d).foldl (fun b j => xor b (taps j && s j.succ)) (xor (s 0) bias) := by
+    apply bitAsZ.injective
+    simp only [tappedControl,bitAsZ_xor,foldTap_toZ,add_assoc]
+  simp only [advance,e]
+
+theorem tapAdvance_affine {d : Nat} (taps : Fin d → Bool) (bias : Bool) :
+    IsAffine2 (liftToVec (advance (tappedControl taps bias))) := by
+  have low (x : Vec2 (d+1)) (j : Fin d) :
+      liftToVec (advance (tappedControl taps bias)) x j.castSucc = x j.succ := by
+    have inv := congrFun ((stateVec d).apply_symm_apply x) j.succ
+    change bitAsZ (((stateVec d).symm x) j.succ) = x j.succ at inv
+    change bitAsZ (advance (tappedControl taps bias) ((stateVec d).symm x) j.castSucc) = _
+    simpa only [advance,Fin.snoc_castSucc] using inv
+  have high (x : Vec2 (d+1)) :
+      liftToVec (advance (tappedControl taps bias)) x (Fin.last d) =
+        x 0 + bitAsZ bias + tapSum taps (fun j => x j.succ) := by
+    let s := (stateVec d).symm x
+    have inv (j : Fin (d+1)) : bitAsZ (s j) = x j :=
+      congrFun ((stateVec d).apply_symm_apply x) j
+    change bitAsZ (advance (tappedControl taps bias) s (Fin.last d)) = _
+    rw [tapAdvance_match,Fin.snoc_last,foldTap_toZ,bitAsZ_xor,inv 0]
+    simp [tapSum, inv]
+  intro x y
+  funext j
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · simp only [Pi.add_apply,Pi.sub_apply,high,Pi.zero_apply,zero_add]
+    have tail : (fun i : Fin d => x i.succ + y i.succ) =
+      (fun i : Fin d => x i.succ) + (fun i : Fin d => y i.succ) := rfl
+    rw [tail,tapSum_add]
+    have z : (fun _ : Fin d => (0 : ZMod 2)) = 0 := rfl
+    rw [z,tapSum_zero,add_zero]
+    abel
+  · simp only [Pi.add_apply,Pi.sub_apply,low,Pi.zero_apply,sub_zero]
+
+theorem earlySupplyFromReset {d L : Nat} (wL : d+1 ≤ L) (short : L < 10*(d+1))
+    (taps : Fin L → Fin d → Bool) (bias : Fin L → Bool)
+    (reset : ∀ x : State d,
+      (List.finRange L).foldl (fun (s : State d) row =>
+        let z : Fin d → Bool := fun j => s j.succ
+        let feedback := (List.finRange d).foldl
+          (fun acc bit => xor acc (taps row bit && z bit)) (xor (s 0) (bias row))
+        Fin.snoc (α := fun _ : Fin (d+1) => Bool) z feedback) x = x) :
+    ∃ (ctrl : WindowTable d L) (P : PackingPrefix d L)
+      (m : Nat) (edge : Fin m → State d × State d) (row : Fin m → Fin L),
+      2^(d+1) * min L (2^(d+1)) ≤ 20*m ∧ Function.Injective edge ∧
+      (∀ j k, (edge j).1 ≠ (edge k).2) ∧
+      (∀ i x, P i.succ x = advance (ctrl i) (P i.castSucc x)) ∧
+      (∀ x, P 0 x = x) ∧ (∀ x, P (Fin.last L) x = x) ∧
+      (∀ j, toggle (P (row j).castSucc (edge j).1) = P (row j).castSucc (edge j).2) := by
+  let ctrl : WindowTable d L := fun i => tappedControl (taps i) (bias i)
+  let P := prefixOf ctrl
+  let move := fun i => stateVec d (firstDifference ctrl i)
+  have diag (i : Fin (d+1)) : move (Fin.castLE wL i) i = 1 := by
+    change bitAsZ (firstDifference ctrl (Fin.castLE wL i) i) = 1
+    have e := difference_diagonal ctrl (Fin.castLE wL i) i.isLt
+    rw [show (⟨(Fin.castLE wL i).val,i.isLt⟩ : Fin (d+1)) = i from Fin.ext rfl] at e
+    rw [e]
+    rfl
+  have upper (i j : Fin (d+1)) (h : i.val < j.val) : move (Fin.castLE wL i) j = 0 := by
+    change bitAsZ (firstDifference ctrl (Fin.castLE wL i) j) = 0
+    rw [difference_upper_zero ctrl (Fin.castLE wL i) j h]
+    rfl
+  obtain ⟨m,edge,row,large,inj,sep,ok⟩ := bankFromEarly P wL short move diag upper (by
+    intro i _ x
+    exact firstDifference_affine ctrl i
+      (prefixAffine ctrl (fun r => tapAdvance_affine (taps r) (bias r)) _) x)
+  refine ⟨ctrl,P,m,edge,row,large,inj,sep,prefixOf_succ ctrl,prefixOf_zero ctrl, ?_,ok⟩
+  intro x
+  unfold P
+  rw [prefixOf_last]
+  change (List.finRange L).foldl (fun s r => advance (tappedControl (taps r) (bias r)) s) x = x
+  simp_rw [tapAdvance_match]
+  exact reset x
+
+theorem tailPerm_as_advance {d : Nat} (T : Equiv.Perm (State d))
+    (tail : ∀ (s : State d) (j : Fin d), T s j.castSucc = s j.succ) :
+    ∃ ctrl : (Fin d → Bool) → Bool, ∀ s, advance ctrl s = T s := by
+  let ctrl := fun (z : Fin d → Bool) => T (Fin.cons false z) (Fin.last d)
+  refine ⟨ctrl,?_⟩
+  intro s
+  refine Fin.consCases (fun b z => ?_) s
+  have distinct : T (Fin.cons true z) (Fin.last d) ≠ T (Fin.cons false z) (Fin.last d) := by
+    intro same
+    have all : T (Fin.cons true z) = T (Fin.cons false z) := by
+      funext i
+      refine Fin.lastCases same (fun j => ?_) i
+      rw [tail,tail,Fin.cons_succ,Fin.cons_succ]
+    have h := congrFun (T.injective all) 0
+    exact Bool.noConfusion (by simpa only [Fin.cons_zero] using h)
+  funext i
+  refine Fin.lastCases ?_ (fun j => ?_) i
+  · simp only [advance,Fin.snoc_last,Fin.cons_zero,Fin.cons_succ,ctrl]
+    cases hb : b
+    · simp
+    · cases first : T (Fin.cons false z) (Fin.last d) <;>
+        cases second : T (Fin.cons true z) (Fin.last d) <;> simp_all
+  · rw [advance,Fin.snoc_castSucc,tail]
 
 end WindowSwitch540
