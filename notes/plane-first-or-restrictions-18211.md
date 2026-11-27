@@ -1,0 +1,21 @@
+# Three prefix classes and required bypass reads for L-meta-18211
+
+The [desk claim](https://data.pequalnp.com/data/lemma/L-meta-18211.ebd69ca40c9b.json) asks whether a first OR and a tail of at most 62 gates can accept the 52 incident pairs while rejecting both orientations of the 468 maximal capped inputs. This note reduces the prefix cases and proves a constraint on any such tail.
+
+## Three prefix cases suffice
+
+An OR with no valid raw inputs is constant false. A single effective raw input is a projection, including repeated inputs and a pair with one invalid read. Replace either prefix with any genuine pair OR. Redirect every subsequent use of the helper register, including a direct output reference, to the projected input or to a register index beyond the end of the circuit. Out-of-range reads return false. Lean proves this preserves the tail length, monotone gate class, and value on every input. [Lean redirection proof](https://github.com/steveDOTdigital/pequalnp-proofs/blob/1ba55d8ff56d9458772a922922d7a9505aa3f70a/notes/PlanePortRedirect18211.lean)
+
+By the [incidence symmetry replay](https://github.com/steveDOTdigital/pequalnp-proofs/blob/dcafa21462e677fd8b5610090266e942c269a8c9/notes/plane-first-or-18211.cjs), the only remaining cases are two inputs on the same shore, an incident mixed pair, and a nonincident mixed pair. A symmetry renumbers raw input and output references while leaving internal register positions unchanged. It preserves the relation and the two orientations of the negative tests. It therefore carries any witness to the corresponding representative.
+
+## Both operands require additional reads
+
+The eleven selected negative rows distinguish every ordered pair of raw variables for either value of the first variable. For distinct (a,b) and either fixed value of (a), choose a negative sample with (b=0) on which turning on (b) introduces a flag. The desk imposes rejection before the change. After the change monotonicity and the required flag acceptance imply acceptance. Lean verifies the exact sampled caps, all ordered pairs, and the implication from changed output to a raw read. [Sensitivity certificate](https://github.com/steveDOTdigital/pequalnp-proofs/blob/d55e3fa976673421839aa42cc6396731b4c8a91c/notes/PlaneSensitivity18211.lean)
+
+When the first gate is (a\lor b), take the sample with (a=1). Turning on (b) does not alter the appended prefix register. Neither raw variable alone can be the output, since flags avoiding it exist. Lean then shows that the tail must read (b) directly. Swapping the roles proves the same for (a). [Lean bypass proof](https://github.com/steveDOTdigital/pequalnp-proofs/blob/d3f37d46d6bf2b03217ea73620b30f1ce1766f43/notes/PlaneBypass18211.lean)
+
+These reads must use at least two distinct tail gate occurrences. If there were only one tail gate that reads either variable, it would have to read both. Every allowed binary operation is symmetric on the two input positions. The prefix and that gate would be unchanged by exchanging the bits (a,b), and every other gate and the output would also be unchanged. The plane supplies a flag ({a,c}) for which ({b,c}) is independent. For variables on one shore, choose a neighbor of (a) outside (b)'s neighborhood, using that they share at most one. For a mixed pair choose a neighbor of (a) other than (b), which is on (b)'s shore. The latter two-bit row extends to a posted negative. This was verified for all 650 ordered pairs. The swappable circuit would accept that row by monotonicity, contradicting its rejection. Fixing both prefix operands thus lets the prefix and at least two distinct tail gates be simplified away.
+
+## Search on the full posted tests
+
+A bounded search changed one gate at a time in near-valid 63-gate circuits. It tested 118,214,739 candidate rewrites across the representative prefixes. The best residual error counts were one for the same-shore pair and two for each mixed pair. The same-shore star at 64 total gates passes every posted test. The search and the bypass constraints leave the unrestricted 63-gate exclusion open. [Search source](https://github.com/steveDOTdigital/pequalnp-proofs/blob/f987220c2fa9e2e6444c033f0bdc0db865c8aec0/notes/plane-first-or-local-search-18211.cjs)
