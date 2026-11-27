@@ -1,0 +1,99 @@
+"""Exhaustive seven-gate check for the two-lit graph 34591."""
+from functools import lru_cache
+from itertools import combinations
+
+SAMPLES = [(i, j) for i in range(6) for j in range(i, 6)]
+CELLS = range(len(SAMPLES))
+ALL = (1 << len(SAMPLES)) - 1
+MASK = sum(1 << k for k, (i, j) in enumerate(SAMPLES) if 34591 >> (6*i+j) & 1)
+RAW = tuple(sum(1 << k for k, pair in enumerate(SAMPLES) if pin in pair) for pin in range(6))
+POS = [cell for cell in CELLS if MASK >> cell & 1]
+NEG = [cell for cell in CELLS if not (MASK >> cell & 1)]
+ALL_PAIRS = (1 << (len(POS) * len(NEG))) - 1
+
+
+@lru_cache(None)
+def pair_bits(wire):
+    # Before the last possible NOT we require distinct feature vectors.
+    # When only consuming binary gates remain, we require a directed decrease.
+    down = up = 0
+    for p in POS:
+        for n in NEG:
+            down = 2 * down + bool(wire >> p & 1 and not (wire >> n & 1))
+            up = 2 * up + bool(wire >> n & 1 and not (wire >> p & 1))
+    return down, down | up
+
+
+def viable(wires, budget):
+    if len(wires) > budget + 1:
+        return False
+    either_direction = budget >= len(wires)
+    union = 0
+    for w in wires:
+        union |= pair_bits(w)[either_direction]
+    return union == ALL_PAIRS
+
+
+def advance(wires, budget):
+    # Leave an operand available exactly when it has another future use.
+    # Duplicate and constant outputs are permitted in this replay.
+    for i, x in enumerate(wires):
+        if len(wires) <= budget:
+            rest = wires[:i] + wires[i + 1:]
+            yield (*rest, ALL ^ x)
+            yield (*wires, ALL ^ x)
+        for j in range(i):
+            y = wires[j]
+            rest = wires[:j] + wires[j + 1:i] + wires[i + 1:]
+            for value in (x & y, x | y):
+                yield (*rest, value)
+                if len(wires) <= budget:
+                    yield (*rest, value, x)
+                    yield (*rest, value, y)
+                if len(wires) < budget:
+                    yield (*wires, value)
+
+
+def verify():
+    budget = 7
+    frontier = {tuple(sorted(ws)) for n in range(1, budget + 2)
+                for ws in combinations(RAW, n) if viable(ws, budget)}
+    counts = []
+    while True:
+        counts.append(len(frontier))
+        assert all(MASK not in state for state in frontier)
+        if not frontier or not budget:
+            break
+        next_frontier = set()
+        for state in frontier:
+            for candidate in advance(state, budget):
+                if viable(candidate, budget - 1):
+                    next_frontier.add(tuple(sorted(candidate)))
+        budget -= 1
+        frontier = next_frontier
+    assert not frontier
+    assert counts == [1, 26, 43, 34, 23, 0]
+    print("Seven-gate frontier counts:", counts)
+
+
+
+def verify_witness():
+    # Check all ordered pairs independently of the lower-bound search.
+    gates = [["or",2,1],["and",3,6],["or",7,0],["or",4,2],["and",9,1],["or",8,10],["not",5,5],["and",12,11]]
+    for i in range(6):
+        for j in range(6):
+            w = [k in (i, j) for k in range(6)]
+            for op, x, y in gates:
+                if op == 'not':
+                    w.append(not w[x])
+                elif op == 'or':
+                    w.append(w[x] or w[y])
+                else:
+                    w.append(w[x] and w[y])
+            assert w[-1] == bool((34591 >> (6 * min(i,j) + max(i,j))) & 1)
+    print('Eight-gate circuit verified on all 36 ordered pairs.')
+
+
+if __name__ == "__main__":
+    verify_witness()
+    verify()
