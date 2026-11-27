@@ -260,4 +260,82 @@ theorem toggleAdvance {d : Nat} (control : (Fin d → Bool) → Bool) (s : Fin (
   congr 1
   cases s 0 <;> cases control (fun i : Fin d => s i.succ) <;> decide
 
+
+def windows {L w : Nat} (word : Fin (L+w) → Bool) :
+    Fin (L+1) → Fin w → Bool :=
+  fun i j => word ⟨i.val+j.val, by omega⟩
+
+def Overlaps {L w : Nat} (states : Fin (L+1) → Fin w → Bool) : Prop :=
+  ∀ (i : Nat) (hi : i < L) (j : Nat) (hj : j+1 < w),
+    states ⟨i+1, by omega⟩ ⟨j, by omega⟩ =
+      states ⟨i, by omega⟩ ⟨j+1, hj⟩
+
+theorem windows_overlap {L w : Nat} (word : Fin (L+w) → Bool) :
+    Overlaps (windows word) := by
+  intro i hi j hj
+  unfold windows
+  congr 1
+  apply Fin.ext
+  simp only
+  omega
+
+theorem windows_injective {L w : Nat} (hw : 0 < w) :
+    Function.Injective (@windows L w) := by
+  intro u v eq
+  funext k
+  let u' := fun i : Nat => if hi : i < L+w then u ⟨i,hi⟩ else false
+  let v' := fun i : Nat => if hi : i < L+w then v ⟨i,hi⟩ else false
+  have agree : ∀ i ≤ L, ∀ j < w, u' (i+j) = v' (i+j) := by
+    intro i hi j hj
+    have bound : i+j < L+w := by omega
+    simpa [u',v',bound,windows] using
+      congrArg (fun f : Fin (L+1) → Fin w → Bool =>
+        f ⟨i,by omega⟩ ⟨j,hj⟩) eq
+  simpa [u',v',k.isLt] using windowsDetermine u' v' L w hw agree k.val k.isLt
+
+theorem windows_of_overlap {L w : Nat} (states : Fin (L+1) → Fin w → Bool)
+    (ov : Overlaps states) : ∃ word : Fin (L+w) → Bool, windows word = states := by
+  let s := fun i j : Nat => if hi : i ≤ L then
+      if hj : j < w then states ⟨i, by omega⟩ ⟨j,hj⟩ else false
+    else false
+  have ovNat (i : Nat) (hi : i < L) (j : Nat) (hj : j+1 < w) :
+      s (i+1) j = s i (j+1) := by
+    simpa [s, show i+1 ≤ L by omega, show i ≤ L by omega, show j < w by omega, hj] using ov i hi j hj
+  refine ⟨fun k => encode s L k.val, ?_⟩
+  funext i j
+  simpa [windows,s,show i.val ≤ L by omega,j.isLt] using
+    encodeWindows s L w ovNat i.val j.val (by omega) j.isLt
+
+
+def lowerTrace {L w : Nat} (P : Fin (L+1) → Equiv (Fin w → Bool) (Fin w → Bool))
+    (states : Fin (L+1) → Fin w → Bool) : Fin (L+1) → Fin w → Bool :=
+  fun i => (P i).symm (states i)
+
+def raiseTrace {L w : Nat} (P : Fin (L+1) → Equiv (Fin w → Bool) (Fin w → Bool))
+    (states : Fin (L+1) → Fin w → Bool) : Fin (L+1) → Fin w → Bool :=
+  fun i => P i (states i)
+
+theorem wordTraceCard {L w : Nat} (hw : 0 < w)
+    (P : Fin (L+1) → Equiv (Fin w → Bool) (Fin w → Bool))
+    (words : Finset (Fin (L+w) → Bool))
+    (traces : Finset (Fin (L+1) → Fin w → Bool))
+    (classify : ∀ z, z ∈ words ↔ lowerTrace P (windows z) ∈ traces)
+    (ov : ∀ p ∈ traces, Overlaps (raiseTrace P p)) :
+    words.card = traces.card := by
+  classical
+  apply Finset.card_bij (fun z _ => lowerTrace P (windows z))
+  · intro z hz
+    exact (classify z).mp hz
+  · intro z hz u hu eq
+    apply windows_injective hw
+    funext i
+    simpa [lowerTrace] using congrArg (P i) (congrFun eq i)
+  · intro p hp
+    obtain ⟨z,hz⟩ := windows_of_overlap (raiseTrace P p) (ov p hp)
+    have eq : lowerTrace P (windows z) = p := by
+      rw [hz]
+      funext i
+      simp [lowerTrace,raiseTrace]
+    exact ⟨z, (classify z).mpr (eq.symm ▸ hp), eq⟩
+
 end WindowSwitch540
