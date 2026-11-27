@@ -34,4 +34,28 @@ There are `N(q+1)` flags. If every marked gate is active on at most 99 flags, th
 
 ## Verification
 
-An exact truth-table replay used 220 generated programs over three bits per bank. It checked inclusion in the original wire sets at 7,700 wires and agreement on 325,579 wire-input cases with every earlier marked gate false. The programs included 2,120 separated conjunctions and 1,120 marked conjunctions. The [Lean counting lemma](PlaneMarkedCounting9134.lean) verifies the finite-set covering step and the consequence that a counterexample has a mark active on at least 100 flags, given the bound on flags outside the marked union. The shared-cone gate count above is a written proof.
+An exact truth-table replay used 220 generated programs over three bits per bank. It checked inclusion in the original wire sets at 7,700 wires and agreement on 325,579 wire-input cases with every earlier marked gate false. The programs included 2,120 separated conjunctions and 1,120 marked conjunctions. The [Lean counting lemma](PlaneMarkedCounting9134.lean) verifies the finite-set covering step and the consequence that a counterexample has a mark active on at least 100 flags, given the bound on flags outside the marked union. The [Lean rectangle lemmas](PlaneRectangles9134.lean) verify inclusion and agreement away from marked gates. The shared-cone gate count above is a written proof.
+
+## A bound for few marked conjunctions
+
+Write `t=|M|`. For `2t+2≤q` I obtain a second estimate, which imposes no limit on how many flags each mark can accept:
+
+$$
+N(q+1)\le 2s+2t(q+1)^2.
+$$
+
+It proves the exact posted inequality whenever `100t≤49q` and `q≥299`.
+
+For each marked conjunction let its activation predicate be that at least one operand is true. Over independent vertex sets `A` with size at most twice their number of active predicates, choose one maximizing this number. The empty set is eligible. Then `|A|≤2t`. Any predicate false on `A` stays false on every independent extension by at most two vertices. If it became true, monotonicity would preserve all old active predicates and the two-vertex increase would satisfy the size constraint. This is the stabilization argument already checked in [PlaneProtectedFlags.lean](PlaneProtectedFlags.lean).
+
+Fix the vertices in `A` on. Discard their neighbors from the remaining variables. An independent singleton or pair `B` on the remaining vertices gives an independent input `A∪B` with at most `2t+2≤q` lines, so the original output rejects it. This family of inputs is closed under keeping just the point or line part of `B` together with `A`.
+
+Replace each marked conjunction by one of its operands. If an operand is true on `A`, retain the other operand. Otherwise retain either one. The replacement can only increase the original value. It gives exactly the original value at every row in the test family. In the first case the dropped operand remains true by monotonicity. In the second case stabilization says that both operands are false.
+
+At every unmarked conjunction apply the separatedness condition explicitly. Evaluate its point operand with the original point assignment and the line assignment of `A`. Evaluate its line operand with the point assignment of `A` and the original line assignment. Use the transformed program in each operand. In wire order, the transformed value contains the original value on all rows because an unmarked conjunction of the original operands already admits this cofactor evaluation. The values agree on the independent test family by the same induction, since the marked choices agree there and both cofactor rows remain in the family. Thus every surviving flag is still accepted and the surviving independent singleton and pair tests are still rejected.
+
+Each wire can have a full version, a point-only cofactor and a line-only cofactor. An unmarked conjunction in a cofactor version has one operand evaluated on `A` itself, which is a fixed bit. It simplifies to a copy or zero. Thus the nonconstant cofactor wires are disjunctions of remaining variables on a single bank, using at most two OR gates across both cofactor networks for each original OR. In the full-version network every marked gate is a copy and each unmarked conjunction combines two such cofactor disjunctions. Trace through full-version ORs and copies from the output. A nonempty terminal containing only one bank or a true constant would violate singleton soundness. The productive terminal conjunctions are therefore stars. The shared-cone charging argument counts at most two cofactor ORs per original gate and at most one terminal conjunction per original AND, so at most `2s` gates are charged.
+
+At most `2t(q+1)` vertices were discarded as neighbors. Each removes at most `q+1` flags. Flags incident to anchored vertices are already included in this loss because their other endpoints were discarded. This leaves at least `N(q+1)-2t(q+1)^2` surviving flags and proves the estimate. If `100t≤49q`, the loss multiplied by 100 is at most `98q(q+1)^2≤98N(q+1)`, using `q(q+1)=N-1`. The estimate gives `100s≥N(q+1)`. The posted mark budget permits much larger values of `t`.
+
+The [Lean cofactor lemmas](PlaneAnchoredCofactors9134.lean) verify containment and equality on the slice-closed test family, and verify the threshold arithmetic. The construction and its shared-gate count are proved in writing above.
