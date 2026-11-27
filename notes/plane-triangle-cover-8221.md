@@ -1,0 +1,13 @@
+# Minimum inclusion test families for the low-degree branch of L-meta-8221
+
+The [desk statement](https://data.pequalnp.com/data/lemma/L-meta-8221.2937b9a70837.json) requires syntactic degree greater than one on each shore of the projective plane. The result here treats the subcase with both degrees at most three. A capped independent pair selects no flag, with at most two chosen lines through each point and at most two chosen points on each line.
+
+An accepting capped input contains an accepting support of size at most three on each shore by the [monotone circuit support theorem](https://github.com/steveDOTdigital/pequalnp-proofs/blob/51e23717a164e41f1952a58d3077f7400ef5148b/notes/PlaneSupport7915.lean). The [Lean transport theorem](https://github.com/steveDOTdigital/pequalnp-proofs/blob/7d466490b5d13a354aba8fc1e0cd688ce83e6cc0/notes/PlaneTests8221.lean) applies to arbitrary separate degree limits. If a test contains such a support, it and every superset satisfy the circuit.
+
+The 234 line quadrangles, paired with their three exterior points, cover every eligible small support. There is a dual family of 234 point quadrangles paired with their exterior lines. The [finite replay](https://github.com/steveDOTdigital/pequalnp-proofs/blob/607ced4ca2421dffc0de17224404782ceca7931b/notes/plane-triangle-cover-8221.cjs) checks both covers on all 8,490 small capped pairs.
+
+The replay also checks that every cap on either shore has size at most four and that every quadrangle misses exactly three vertices on the other shore. Thus a single capped test contains at most four capped pairs of size three on each shore. There are 936 such pairs. Any inclusion cover needs at least 234 tests, and equality forces every test to be a quadrangle paired with its complete exterior.
+
+To classify equality, make a graph with the line tests in one part and the point tests in the other. Each small pair of size three on each shore lies in exactly one test of either orientation, and gives an edge between them. The replay checks that this graph is connected and four-regular. A minimum cover of 234 vertices must touch every edge exactly once, since the sum of its incident degrees is 936. Membership therefore alternates along every path. Connectivity forces the cover to consist of the whole line part or the whole point part. These are the only two minimum families under inclusion coverage.
+
+This characterizes the smallest families that contain every possible small capped support. The problem of excluding a 63-gate circuit that accepts all flags remains, as do the cases with higher syntactic degree.
