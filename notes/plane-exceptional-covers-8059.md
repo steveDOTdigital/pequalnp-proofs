@@ -1,0 +1,44 @@
+# Covers of the flags missed by ordinary stars in L-meta-8059
+
+The [posted claim](https://data.pequalnp.com/data/desk/gaps.json) asks for at least 63 gates before joining the two readouts. The [previous result](plane-and-bridges-8059.md) proves this when there are zero direct AND readers and at most one OR between two ANDs. The results below also exclude a lone intervening OR with just one strict AND ancestor when one direct AND reader is allowed. The general posted claim remains open.
+
+## The budget for flags missed by the ordinary stars
+
+Append the readout OR, so a counterexample has at most 63 gates. Trim its cone. Use the [prior safe-lower-gate normalization and grouping](quadrangle-two-pairs.md#a-necessary-condition-at-any-nesting-depth) to regard the output as a union of ordinary stars and an exceptional term. An ordinary star uses a raw center and an OR of its incident neighbors. Ordinary star outputs and the outer ORs have no uses inside the exceptional cone. The cones may share raw disjunctions. Merge the ordinary stars at each chosen center without increasing size.
+
+Write F for the s flags missed by every ordinary star and r for the number of ordinary centers. Covering the other 52−s flags takes at least 52−s−r binary merges in the ordinary neighbor disjunctions. Two different centers share at most one neighbor on the same shore and have disjoint neighbor banks across shores. Consequently a binary merge with at least two distinct raw sources cannot be counted at two centers. Counting r ordinary ANDs and r joins with the exceptional output leaves at most g = s+11−r paid gates in that output cone. Giving every preprocessing wire of the ordinary stars for free, a connected fan-in-two cone has at most g+1 distinct live sources. [Lean checks the budget arithmetic](PlaneThreeCover8059.lean).
+
+Pin the raw coordinates outside the endpoints of F to zero. Give the exceptional cone all remaining raw inputs and all disjunctions of subsets of the neighbors of any allowed ordinary center, excluding its neighbors reached by a hidden flag. For each flag and quadrangle there must be a chosen source which is true on the flag and false on the quadrangle. Otherwise the positive source vector is below the negative one, contrary to monotonicity. The replays solve these necessary hitting constraints exactly. They also independently verify coverage by the Singer projectivities.
+
+## Three exceptional cover vertices
+
+Suppose F has minimum vertex-cover size three. It contains a matching of size three. When r is at least thirteen, the source budget is at most s−1. The [three-center replay](plane-exceptional-three-cover-8059.cjs) tests 2,188 cover-and-flag cases modulo projectivities, granting disjunctions from every plane center. None fits that source budget.
+
+When r is at most eleven, the combined cover of the ordinary and exceptional centers has size at most fourteen, so it contains a full shore and at most one vertex opposite. Each vertex on the full shore outside the exceptional cover has an ordinary star with at least three neighbors. There are at least ten such stars, so the [existing ten-center bound](quadrangle-two-pairs.md#ordinary-star-centers-on-a-single-shore) gives 64.
+
+When r is twelve, the only geometry left after the ten-center bound has all three exceptional centers on the full shore and two opposite centers whose common neighbor is outside those three. The two kinds of center are disjoint since the combined cover has size fifteen. Hidden flags comprise all edges at the three exceptional centers that miss the two opposite centers, with arbitrary choices for the other edges. Only 24 cases in the replay admit source sets at the available budget. In each the sole possible source set consists of all s distinct raw endpoints. With at most s−1 gates the live output cone must be a read-once tree. Its accepted-pair graph is a star forest. An OR joins disjoint components and a nonconstant AND makes a complete rectangle across its two disjoint subtrees, which must be a star because the incidence graph has no four-cycle. The graph cannot have s edges on s vertices.
+
+The earlier two-cover theorem handles smaller covers. Thus any candidate below 64 gates after normalization must have four disjoint flags missed by all ordinary stars.
+
+## Four exceptional cover vertices containing an incidence
+
+Suppose F has minimum cover size four and admits a four-vertex cover containing an incident point-line pair. For r at least thirteen, the [four-center replay](plane-exceptional-four-cover-8059.cjs) checks 34,976 cover-and-flag cases modulo projectivities. None fits the s−1 source budget.
+
+For r at most twelve, the union of the ordinary and exceptional centers is a cover of size at most sixteen. A cover of size at most fifteen contains a full shore. If a size-sixteen cover omits vertices from both shores, the equality case of the [mixed independent-set bound](plane-and-bridges-8059.md#a-cover-restriction-for-three-exceptional-centers) gives twelve vertices on one shore and the four neighbors of its omitted vertex on the other. A full-shore cover of at most fourteen vertices already gives ten sufficiently developed ordinary stars, since the exceptional cover has a vertex on each shore. For larger covers, the replay enumerates the possible ordinary and exceptional center sets and discards a case whenever ten ordinary stars must have at least three neighbors. It tests every admissible F of matching size four in the remaining geometry.
+
+Among the 15,252 remaining cases, 2,078 pass the source constraint. Across all 3,602 possible source pools, each is excluded by one of two checks.
+
+- A pool of only singleton raw inputs at the read-once budget would have a star forest as its accepted-pair graph. A matching of four in such a graph requires at least four nonempty star components. The number of accepted flags is therefore at most the number of raw inputs minus four, below the required s.
+- Restrict to a four-vertex path or an induced six-cycle of flags in F. In the selected pool every support projects to zero or a singleton. Pinning zero sources loses at least one gate per source by the connected circuit minor bound, after which the other sources can be substituted by raw copies. The replay checks the induced edges and quadrangle extensions of the needed negative inputs. A four-vertex path needs four gates, since three gates on four essential inputs would make a read-once star forest. The [six-cycle bound](plane-ten-star-equality.md) needs eight gates. Every such surviving pool falls below the relevant projected lower bound.
+
+Consequently a four-vertex cover of the hidden flags in a smaller circuit cannot contain an incidence.
+
+## Applying this to the sole intervening OR
+
+In the remaining one-ancestor shapes from the [guard factoring argument](plane-and-bridges-8059.md#the-lone-bridge-with-one-and-ancestor-and-one-direct-reader), write the sole intervening OR as H OR Y, with H a primitive AND of raw disjunctions and Y a pure raw disjunction. The only direct reader is D. If H rejects every quadrangle, remove its reads and add it to the output. The old intervening OR can copy Y and disappear, paying for the added join. Only the at most two direct comparable AND pairs remain, which is already excluded.
+
+In the first remaining shape D conjoins a B term with a distinct primitive AND P. If P is safe, D can be replaced by P at the output, leaving the zero-direct-reader case. Otherwise neither H nor P appears as a safe output term. Factoring the B terms gives one exceptional term of the form (Y OR AB) AND (G OR XPQ), where A,B,G,X,P,Q denote raw disjunctions and the primitive conjunct is PQ. This is a product of five raw disjunctions. Its accepted flags have a cover of size at most three by the [five-clause bound](quadrangle-four-clauses.md), so the three-cover result applies.
+
+In the other shape D conjoins two primitive ANDs. A safe operand can replace D at the output, as above. If one operand is H, transform (H OR Y) AND G, OR H AND P, into H AND (G OR P), OR Y AND G. Both have the same cost after factoring the B terms. The last term is ordinary, and H AND (G OR P) is a four-clause term. The required cover then has size at most two. If neither operand is H, the B term is a three-clause term and D is a four-clause term. Each covers at most two vertices. To hide a matching of four, each term must supply two disjoint flags. The three-clause term must therefore be a genuine double star, with adjacent centers. Combining these centers with a two-cover for D gives exactly the incident four-cover excluded above. Lean checks the Boolean rewrites.
+
+Thus any counterexample to L-meta-8059 has either at least two intervening OR gates, or a sole intervening OR with at least two strict AND ancestors.
